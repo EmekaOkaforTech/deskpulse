@@ -1,0 +1,49 @@
+# DeskPulse Configuration File
+# ============================
+# Copy this file to /etc/deskpulse/config.ini for system-wide settings
+# Copy to ~/.config/deskpulse/config.ini for user-specific overrides
+#
+# User config takes precedence over system config.
+# Any values not specified will use sensible defaults.
+
+[camera]
+# Camera device index (0 = /dev/video0, 1 = /dev/video1, etc.)
+# Valid range: 0-9
+device = 0
+
+# Camera resolution preset
+# Valid values: 480p, 720p, 1080p
+resolution = 720p
+
+# Target frames per second for posture analysis
+# Higher values use more CPU. Recommended: 10-15 for Raspberry Pi
+fps_target = 10
+
+[alerts]
+# Minutes of bad posture before triggering an alert
+# Valid range: 1-60 (minutes)
+posture_threshold_minutes = 10
+
+# Enable/disable desktop notifications
+# Valid values: true, false, yes, no, 1, 0
+notification_enabled = true
+
+[dashboard]
+# HTTP port for the web dashboard
+# Valid range: 1024-65535
+port = 5000
+
+# Seconds between dashboard status updates
+# Valid range: 1-10
+update_interval_seconds = 2
+
+[security]
+# IMPORTANT: Secret key is NOT read from this file!
+# The secret key MUST be set via environment variable for security:
+#   export DESKPULSE_SECRET_KEY="your-secure-random-key"
+#
+# Or via systemd service file:
+#   /etc/deskpulse/secrets.env
+#
+# This placeholder is for documentation only:
+# secret_key = ${DESKPULSE_SECRET_KEY}

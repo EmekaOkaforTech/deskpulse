@@ -1,0 +1,21 @@
+[Unit]
+Description=DeskPulse - Privacy-First Posture Monitoring
+After=network.target
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/deskpulse
+Environment="DESKPULSE_SECRET_KEY=__GENERATED_AT_INSTALL__"
+EnvironmentFile=-/etc/deskpulse/secrets.env
+ExecStart=/home/pi/deskpulse/venv/bin/python wsgi.py
+WatchdogSec=30
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deskpulse
+
+[Install]
+WantedBy=multi-user.target

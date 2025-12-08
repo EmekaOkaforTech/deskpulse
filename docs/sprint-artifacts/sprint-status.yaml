@@ -1,0 +1,97 @@
+# generated: 2025-12-07
+# project: deskpulse
+# project_key: deskpulse
+# tracking_system: file-system
+# story_location: {project-root}/docs/sprint-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic exists in epic file but not contexted
+#   - contexted or in-progress
+#   - done: Epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder by *create-story
+#   - ready-for-dev: Draft approved and story context created by *story-ready
+#   - in-progress: Developer actively working on implementation by *dev-story
+#   - review: Implementation complete, ready for review by *code-review
+#   - done: Story completed by *story-done
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done by *retrospective
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epics should be marked `in-progress` before stories can be marked beyond `backlog`
+# - SM typically drafts next story ONLY after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', dev reviews, then Dev moves to 'done'
+
+generated: 2025-12-07
+project: deskpulse
+project_key: deskpulse
+tracking_system: file-system
+story_location: "{project-root}/docs/sprint-artifacts"
+
+development_status:
+  # Epic 1: Foundation Setup & Installation
+  epic-1: in-progress
+  1-1-project-structure-and-flask-application-factory-setup: done
+  1-2-database-schema-initialization-with-wal-mode: done
+  1-3-configuration-management-system: done
+  1-4-systemd-service-configuration-and-auto-start: done
+  1-5-logging-infrastructure-with-systemd-journal-integration: done
+  1-6-one-line-installer-script: done
+  1-7-basic-development-setup-documentation: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Real-Time Posture Monitoring
+  epic-2: backlog
+  2-1-camera-capture-module-with-opencv: backlog
+  2-2-mediapipe-pose-landmark-detection: backlog
+  2-3-binary-posture-classification: backlog
+  2-4-multi-threaded-cv-pipeline-architecture: backlog
+  2-5-dashboard-ui-with-pico-css: backlog
+  2-6-socketio-real-time-updates: backlog
+  2-7-camera-state-management-and-graceful-degradation: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Alert & Notification System
+  epic-3: backlog
+  3-1-alert-threshold-tracking-and-state-management: backlog
+  3-2-desktop-notifications-with-libnotify: backlog
+  3-3-browser-notifications-for-remote-dashboard-users: backlog
+  3-4-pause-and-resume-monitoring-controls: backlog
+  3-5-posture-correction-confirmation-feedback: backlog
+  3-6-alert-response-loop-integration-testing: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Progress Tracking & Analytics
+  epic-4: backlog
+  4-1-posture-event-database-persistence: backlog
+  4-2-daily-statistics-calculation-engine: backlog
+  4-3-dashboard-todays-stats-display: backlog
+  4-4-7-day-historical-data-table: backlog
+  4-5-trend-calculation-and-progress-messaging: backlog
+  4-6-end-of-day-summary-report: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: System Management & Reliability
+  epic-5: backlog
+  5-1-github-release-update-checking: backlog
+  5-2-database-backup-before-updates: backlog
+  5-3-update-mechanism-with-rollback: backlog
+  5-4-system-health-monitoring-dashboard: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Community & Contribution Infrastructure
+  epic-6: backlog
+  6-1-contributing-md-and-development-setup-documentation: backlog
+  6-2-github-issue-templates-and-good-first-issue-labeling: backlog
+  6-3-pre-commit-hooks-and-code-quality-automation: backlog
+  6-4-github-actions-ci-cd-pipeline: backlog
+  6-5-comprehensive-documentation-structure: backlog
+  6-6-changelog-md-and-version-management: backlog
+  epic-6-retrospective: optional

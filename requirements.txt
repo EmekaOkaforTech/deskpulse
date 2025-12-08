@@ -1,0 +1,10 @@
+flask==3.0.0
+flask-socketio==5.3.5
+python-socketio==5.10.0
+opencv-python==4.8.1.78
+sdnotify>=0.3.2
+systemd-python>=235
+# mediapipe==0.10.8
+# NOTE: MediaPipe requires special installation on Raspberry Pi ARM architecture
+# For 64-bit Pi OS: pip install mediapipe==0.10.8
+# Commented out to avoid installation errors on non-Pi platforms
