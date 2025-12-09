@@ -93,6 +93,29 @@ def get_ini_bool(section: str, key: str, fallback: bool) -> bool:
         return fallback
 
 
+def get_ini_float(section: str, key: str, fallback: float) -> float:
+    """
+    Get float configuration value from INI files with fallback.
+
+    Args:
+        section: INI section name
+        key: Configuration key
+        fallback: Default float value if not found or invalid
+
+    Returns:
+        Configuration value as float
+    """
+    str_value = get_ini_value(section, key, str(fallback))
+    try:
+        return float(str_value)
+    except ValueError:
+        logging.warning(
+            f"Invalid float value for [{section}] {key}='{str_value}', "
+            f"using fallback {fallback}"
+        )
+        return fallback
+
+
 def validate_config() -> dict:
     """
     Validate configuration values and return validated dict with logging.
@@ -172,6 +195,16 @@ class Config:
     CAMERA_DEVICE = get_ini_int("camera", "device", 0)
     CAMERA_RESOLUTION = get_ini_value("camera", "resolution", "720p")
     CAMERA_FPS_TARGET = get_ini_int("camera", "fps_target", 10)
+
+    # MediaPipe Pose Configuration (Story 2.2)
+    MEDIAPIPE_MODEL_COMPLEXITY = get_ini_int("mediapipe", "model_complexity", 1)
+    MEDIAPIPE_MIN_DETECTION_CONFIDENCE = get_ini_float(
+        "mediapipe", "min_detection_confidence", 0.5
+    )
+    MEDIAPIPE_MIN_TRACKING_CONFIDENCE = get_ini_float(
+        "mediapipe", "min_tracking_confidence", 0.5
+    )
+    MEDIAPIPE_SMOOTH_LANDMARKS = get_ini_bool("mediapipe", "smooth_landmarks", True)
 
     # Alert settings from INI
     ALERT_THRESHOLD = get_ini_int("alerts", "posture_threshold_minutes", 10) * 60

@@ -19,6 +19,18 @@ resolution = 720p
 # Higher values use more CPU. Recommended: 10-15 for Raspberry Pi
 fps_target = 10
 
+[mediapipe]
+# MediaPipe Pose detection settings (Story 2.2)
+# Model complexity: 0=lite (fast, less accurate), 1=full (balanced), 2=heavy (slow, accurate)
+model_complexity = 1
+
+# Detection confidence thresholds (0.0-1.0)
+min_detection_confidence = 0.5      # Initial pose detection threshold
+min_tracking_confidence = 0.5       # Landmark tracking threshold
+
+# Landmark smoothing (reduces jitter in real-time tracking)
+smooth_landmarks = true
+
 [alerts]
 # Minutes of bad posture before triggering an alert
 # Valid range: 1-60 (minutes)

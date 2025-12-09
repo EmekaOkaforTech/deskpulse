@@ -1,10 +1,10 @@
 flask==3.0.0
 flask-socketio==5.3.5
 python-socketio==5.10.0
-opencv-python==4.8.1.78
+opencv-python==4.12.0.88
+mediapipe>=0.10.18,<0.11.0  # Story 2.2 - Pose landmark detection
 sdnotify>=0.3.2
 systemd-python>=235
-# mediapipe==0.10.8
-# NOTE: MediaPipe requires special installation on Raspberry Pi ARM architecture
-# For 64-bit Pi OS: pip install mediapipe==0.10.8
-# Commented out to avoid installation errors on non-Pi platforms
+# NOTE: MediaPipe is compatible with ARM64 (Raspberry Pi OS 64-bit)
+# Version 0.10.18+ adds Python 3.13 support and NumPy 2.x compatibility
+# For x86 development machines: MediaPipe works on modern x86 architectures
