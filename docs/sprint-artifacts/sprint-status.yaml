@@ -48,9 +48,9 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Real-Time Posture Monitoring
-  epic-2: backlog
-  2-1-camera-capture-module-with-opencv: backlog
-  2-2-mediapipe-pose-landmark-detection: backlog
+  epic-2: in-progress
+  2-1-camera-capture-module-with-opencv: done
+  2-2-mediapipe-pose-landmark-detection: review
   2-3-binary-posture-classification: backlog
   2-4-multi-threaded-cv-pipeline-architecture: backlog
   2-5-dashboard-ui-with-pico-css: backlog
