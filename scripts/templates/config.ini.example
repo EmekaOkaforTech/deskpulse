@@ -31,6 +31,12 @@ min_tracking_confidence = 0.5       # Landmark tracking threshold
 # Landmark smoothing (reduces jitter in real-time tracking)
 smooth_landmarks = true
 
+[posture]
+# Posture classification settings (Story 2.3)
+# Angle threshold: Maximum degrees from vertical for good posture (0° = perfect upright)
+# Recommended range: 10-20° (15° is ergonomic research consensus)
+angle_threshold = 15
+
 [alerts]
 # Minutes of bad posture before triggering an alert
 # Valid range: 1-60 (minutes)

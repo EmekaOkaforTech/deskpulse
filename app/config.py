@@ -206,6 +206,9 @@ class Config:
     )
     MEDIAPIPE_SMOOTH_LANDMARKS = get_ini_bool("mediapipe", "smooth_landmarks", True)
 
+    # Posture Classification Configuration (Story 2.3)
+    POSTURE_ANGLE_THRESHOLD = get_ini_int("posture", "angle_threshold", 15)
+
     # Alert settings from INI
     ALERT_THRESHOLD = get_ini_int("alerts", "posture_threshold_minutes", 10) * 60
     NOTIFICATION_ENABLED = get_ini_bool("alerts", "notification_enabled", True)

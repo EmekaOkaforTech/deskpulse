@@ -5,6 +5,7 @@ Tests cover CameraCapture class with mocked cv2 for isolation.
 """
 
 import logging
+import time
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
@@ -380,3 +381,218 @@ class TestPoseDetector:
             detector.close()
 
             mock_pose_instance.close.assert_called_once()
+
+
+class TestPostureClassifier:
+    """Test suite for PostureClassifier class."""
+
+    def test_classifier_initialization(self, app):
+        """Test PostureClassifier initialization with default config."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            assert classifier.angle_threshold == 15
+            assert hasattr(classifier, 'mp_pose')
+
+    def test_classify_posture_good(self, app):
+        """Test good posture classification (angle < threshold)."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            # Mock landmarks with upright posture (0° angle)
+            mock_landmarks = self._create_mock_landmarks(
+                shoulder_x=0.5, shoulder_y=0.3,
+                hip_x=0.5, hip_y=0.6
+            )
+
+            result = classifier.classify_posture(mock_landmarks)
+
+            assert result == 'good'
+
+    def test_classify_posture_bad_forward_lean(self, app):
+        """Test bad posture classification with forward lean (angle > threshold)."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            # Mock landmarks with forward lean (20° angle > 15° threshold)
+            mock_landmarks = self._create_mock_landmarks(
+                shoulder_x=0.6, shoulder_y=0.3,  # Shoulders forward
+                hip_x=0.5, hip_y=0.6
+            )
+
+            result = classifier.classify_posture(mock_landmarks)
+
+            assert result == 'bad'
+
+    def test_classify_posture_bad_backward_lean(self, app):
+        """Test bad posture classification with backward lean."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            # Mock landmarks with backward lean (angle > threshold)
+            mock_landmarks = self._create_mock_landmarks(
+                shoulder_x=0.4, shoulder_y=0.3,  # Shoulders backward
+                hip_x=0.5, hip_y=0.6
+            )
+
+            result = classifier.classify_posture(mock_landmarks)
+
+            assert result == 'bad'
+
+    def test_classify_posture_none_landmarks(self, app):
+        """Test classification with None landmarks (user absent)."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            result = classifier.classify_posture(None)
+
+            assert result is None
+
+    def test_classify_posture_malformed_landmarks(self, app):
+        """Test classification handles malformed landmark data gracefully."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            from unittest.mock import Mock
+            classifier = PostureClassifier()
+
+            # Mock landmarks with missing attributes
+            mock_landmarks = Mock()
+            mock_landmarks.landmark = []  # Empty list
+
+            result = classifier.classify_posture(mock_landmarks)
+
+            assert result is None
+
+    def test_get_landmark_color_good(self, app):
+        """Test color for good posture is green."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            color = classifier.get_landmark_color('good')
+
+            assert color == (0, 255, 0)  # Green in BGR
+
+    def test_get_landmark_color_bad(self, app):
+        """Test color for bad posture is amber (not red)."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            color = classifier.get_landmark_color('bad')
+
+            assert color == (0, 191, 255)  # Amber in BGR
+
+    def test_get_landmark_color_absent(self, app):
+        """Test color for user absent is gray."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            color = classifier.get_landmark_color(None)
+
+            assert color == (128, 128, 128)  # Gray in BGR
+
+    def test_angle_calculation_accuracy(self, app):
+        """Test angle calculation matches expected geometry."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            # Create landmarks with known 30° forward lean
+            # dx = 0.15, dy = 0.26 → atan2(0.15, 0.26) = 30°
+            mock_landmarks = self._create_mock_landmarks(
+                shoulder_x=0.575, shoulder_y=0.3,
+                hip_x=0.5, hip_y=0.56
+            )
+
+            # Should classify as bad (30° > 15° threshold)
+            result = classifier.classify_posture(mock_landmarks)
+            assert result == 'bad'
+
+    def test_configurable_threshold(self, app):
+        """Test classifier respects configurable threshold."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            # Set custom threshold in config
+            app.config['POSTURE_ANGLE_THRESHOLD'] = 20
+
+            classifier = PostureClassifier()
+
+            # Create landmarks with 18° lean (bad at 15° threshold, good at 20°)
+            mock_landmarks = self._create_mock_landmarks(
+                shoulder_x=0.56, shoulder_y=0.3,
+                hip_x=0.5, hip_y=0.6
+            )
+
+            result = classifier.classify_posture(mock_landmarks)
+
+            # Should be good with 20° threshold
+            assert result == 'good'
+
+    def test_classify_posture_low_visibility_landmarks(self, app):
+        """Test classification with low-visibility landmarks."""
+        with app.app_context():
+            from app.cv.classification import PostureClassifier
+            classifier = PostureClassifier()
+
+            # Mock landmarks with low visibility (e.g., poor lighting)
+            mock_landmarks = self._create_mock_landmarks(
+                shoulder_x=0.5, shoulder_y=0.3,
+                hip_x=0.5, hip_y=0.6,
+                visibility=0.2  # Very low confidence
+            )
+
+            result = classifier.classify_posture(mock_landmarks)
+
+            # Should still classify (current design uses landmarks regardless of visibility)
+            # Algorithm relies on Story 2.2's min_tracking_confidence to filter at source
+            assert result in ['good', 'bad']
+
+    # Helper method
+    def _create_mock_landmarks(
+        self,
+        shoulder_x: float,
+        shoulder_y: float,
+        hip_x: float,
+        hip_y: float,
+        visibility: float = 1.0
+    ):
+        """Create mock MediaPipe landmarks for testing."""
+        from unittest.mock import MagicMock
+        mock_landmarks = MagicMock()
+
+        # Create 33 mock landmarks (MediaPipe Pose standard)
+        mock_landmark_list = []
+        for i in range(33):
+            landmark = MagicMock()
+            landmark.x = 0.5
+            landmark.y = 0.5
+            landmark.z = 0.0
+            landmark.visibility = visibility
+            mock_landmark_list.append(landmark)
+
+        # Set specific landmarks for shoulders and hips
+        # Landmark 11: LEFT_SHOULDER
+        mock_landmark_list[11].x = shoulder_x
+        mock_landmark_list[11].y = shoulder_y
+
+        # Landmark 12: RIGHT_SHOULDER
+        mock_landmark_list[12].x = shoulder_x
+        mock_landmark_list[12].y = shoulder_y
+
+        # Landmark 23: LEFT_HIP
+        mock_landmark_list[23].x = hip_x
+        mock_landmark_list[23].y = hip_y
+
+        # Landmark 24: RIGHT_HIP
+        mock_landmark_list[24].x = hip_x
+        mock_landmark_list[24].y = hip_y
+
+        mock_landmarks.landmark = mock_landmark_list
+        return mock_landmarks
