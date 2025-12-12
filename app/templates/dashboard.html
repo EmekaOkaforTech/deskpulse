@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - DeskPulse{% endblock %}
+
+{% block content %}
+<!-- Header: Project branding and tagline -->
+<header>
+    <hgroup>
+        <h1>DeskPulse</h1>
+        <h2>Privacy-First Posture Monitoring</h2>
+    </hgroup>
+</header>
+
+<!-- Main article: Live camera feed and posture status -->
+<article>
+    <header>
+        <h3>
+            <span class="status-indicator status-offline" id="status-dot"></span>
+            <span id="status-text">Connecting to camera...</span>
+        </h3>
+    </header>
+
+    <!-- Live camera feed (placeholder until Story 2.6 SocketIO) -->
+    <div class="camera-feed">
+        <img id="camera-frame"
+             alt="Live camera feed with pose overlay"
+             class="hidden">
+        <p class="placeholder-text" id="camera-placeholder">
+            📹 Waiting for camera feed...<br>
+            <small>(Camera feed will appear when CV pipeline is running)</small>
+        </p>
+    </div>
+
+    <footer>
+        <p id="posture-message">Your posture status will appear here when detected.</p>
+        <p class="recording-indicator">🔴 Recording: Camera is active</p>
+    </footer>
+</article>
+
+<!-- Today's stats summary (placeholder until Epic 4) -->
+<article>
+    <header><h3>Today's Summary</h3></header>
+    <div role="group">
+        <div>
+            <strong>Good Posture:</strong> <span id="good-time">--h --m</span>
+        </div>
+        <div>
+            <strong>Bad Posture:</strong> <span id="bad-time">--h --m</span>
+        </div>
+        <div>
+            <strong>Posture Score:</strong> <span id="posture-score">--%</span>
+        </div>
+    </div>
+    <footer>
+        <small>Stats update in real-time as you work (Story 2.6+)</small>
+    </footer>
+</article>
+
+<!-- Privacy controls (placeholder until Story 3.1) -->
+<article>
+    <header><h3>Privacy Controls</h3></header>
+    <button id="pause-btn" class="secondary" disabled>⏸ Pause Monitoring</button>
+    <button id="resume-btn" class="secondary hidden" disabled>▶️ Resume Monitoring</button>
+    <footer>
+        <small>
+            Privacy controls will be activated in Story 3.1<br>
+            Camera indicator shows recording status
+        </small>
+    </footer>
+</article>
+
+<!-- System status (health check indicator) -->
+<article>
+    <header><h3>System Status</h3></header>
+    <p>
+        <strong>CV Pipeline:</strong> <span id="cv-status">Checking...</span><br>
+        <strong>Last Update:</strong> <span id="last-update">--:--:--</span>
+    </p>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

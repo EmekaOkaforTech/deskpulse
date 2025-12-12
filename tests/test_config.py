@@ -422,6 +422,21 @@ class TestConfigValidation:
         assert result["alert_threshold"] == 600  # 10 minutes in seconds
         assert "out of range" in caplog.text
 
+    def test_validate_alert_cooldown_range(self, temp_config_dir, reload_config, caplog):
+        """Alert cooldown out of range should log error and use fallback."""
+        user_ini = temp_config_dir["user_config"]
+        user_ini.write_text("[alerts]\nalert_cooldown_minutes = 50\n")
+
+        config_module = reload_config(
+            system_path=temp_config_dir["system_config"], user_path=user_ini
+        )
+
+        result = config_module.validate_config()
+
+        assert result["alert_cooldown"] == 300  # 5 minutes in seconds (fallback)
+        assert "Alert cooldown" in caplog.text
+        assert "out of range" in caplog.text
+
 
 class TestTestingConfig:
     """Tests for TestingConfig isolation."""

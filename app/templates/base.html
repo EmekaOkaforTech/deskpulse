@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DeskPulse{% endblock %}</title>
+
+    <!-- Pico CSS v1.5.13 (7-9KB gzipped) - Lightweight semantic HTML framework -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@picocss/pico@1.5.13/css/pico.min.css"
+          integrity="sha384-w7YD/qcHnjoUrbdOdLwBRSZOU7qO/92RvRYnF5+yQB51RnXRP7QPK/LuNmkF5LNE"
+          crossorigin="anonymous">
+
+    <!-- SocketIO client (Story 2.6 will activate) -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
+            integrity="sha384-1fOn6VtTq3PWwfsOrk45i46pNqEnG24KxsFFBJ/iiJI3jzzzHuCOM6GsqveB2/ij"
+            crossorigin="anonymous"></script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+
+    <style>
+        /* Minimal custom styles - Pico CSS provides most styling */
+        .camera-feed {
+            max-width: 640px;
+            margin: 0 auto;
+            border-radius: 8px;
+            background-color: var(--card-background-color);
+            padding: 1rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        /* UX Design: Colorblind-safe palette (green/amber, NOT red) */
+        .status-good { background-color: #10b981; }     /* Green */
+        .status-bad { background-color: #f59e0b; }      /* Amber */
+        .status-offline { background-color: #6b7280; }  /* Gray */
+
+        /* Privacy indicator always visible */
+        .recording-indicator {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        /* Responsive image sizing */
+        .camera-feed img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Placeholder styling */
+        .placeholder-text {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted-color);
+        }
+
+        /* Footer styling */
+        .privacy-footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 1rem;
+        }
+
+        /* Hidden element utility */
+        .hidden {
+            display: none;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="container privacy-footer">
+        <small>
+            🔒 Privacy-First Monitoring · 100% Local Processing · No Cloud Uploads
+        </small>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
