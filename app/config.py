@@ -165,6 +165,15 @@ def validate_config() -> dict:
         threshold_minutes = 10
     validated["alert_threshold"] = threshold_minutes * 60  # Convert to seconds
 
+    # Alert cooldown (1-30 minutes) - Story 3.1
+    cooldown_minutes = get_ini_int("alerts", "alert_cooldown_minutes", 5)
+    if not 1 <= cooldown_minutes <= 30:
+        logging.error(
+            f"Alert cooldown {cooldown_minutes} out of range (1-30), using fallback 5"
+        )
+        cooldown_minutes = 5
+    validated["alert_cooldown"] = cooldown_minutes * 60  # Convert to seconds
+
     # Notification enabled
     validated["notification_enabled"] = get_ini_bool(
         "alerts", "notification_enabled", True
@@ -209,8 +218,9 @@ class Config:
     # Posture Classification Configuration (Story 2.3)
     POSTURE_ANGLE_THRESHOLD = get_ini_int("posture", "angle_threshold", 15)
 
-    # Alert settings from INI
+    # Alert settings from INI (Story 1.3 + Story 3.1)
     ALERT_THRESHOLD = get_ini_int("alerts", "posture_threshold_minutes", 10) * 60
+    ALERT_COOLDOWN = get_ini_int("alerts", "alert_cooldown_minutes", 5) * 60  # Story 3.1
     NOTIFICATION_ENABLED = get_ini_bool("alerts", "notification_enabled", True)
 
     # Dashboard settings from INI
@@ -253,6 +263,8 @@ class DevelopmentConfig(Config):
     DEBUG = True
     LOG_LEVEL = "DEBUG"
     MOCK_CAMERA = False
+    # Allow network access via FLASK_HOST environment variable
+    HOST = os.environ.get("FLASK_HOST") or "127.0.0.1"
 
 
 class TestingConfig(Config):
@@ -271,7 +283,9 @@ class TestingConfig(Config):
     CAMERA_DEVICE = 0
     CAMERA_RESOLUTION = "720p"
     CAMERA_FPS_TARGET = 10
+    POSTURE_ANGLE_THRESHOLD = 15  # Posture classification threshold (Story 2.3)
     ALERT_THRESHOLD = 600  # 10 minutes
+    ALERT_COOLDOWN = 300  # 5 minutes (Story 3.1)
     NOTIFICATION_ENABLED = True
     DASHBOARD_PORT = 5000
     DASHBOARD_UPDATE_INTERVAL = 2
