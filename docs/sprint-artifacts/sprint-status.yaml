@@ -52,15 +52,15 @@ development_status:
   2-1-camera-capture-module-with-opencv: done
   2-2-mediapipe-pose-landmark-detection: done
   2-3-binary-posture-classification: done
-  2-4-multi-threaded-cv-pipeline-architecture: drafted
-  2-5-dashboard-ui-with-pico-css: backlog
-  2-6-socketio-real-time-updates: backlog
-  2-7-camera-state-management-and-graceful-degradation: backlog
+  2-4-multi-threaded-cv-pipeline-architecture: done
+  2-5-dashboard-ui-with-pico-css: done
+  2-6-socketio-real-time-updates: done
+  2-7-camera-state-management-and-graceful-degradation: done
   epic-2-retrospective: optional
 
   # Epic 3: Alert & Notification System
-  epic-3: backlog
-  3-1-alert-threshold-tracking-and-state-management: backlog
+  epic-3: in-progress
+  3-1-alert-threshold-tracking-and-state-management: done
   3-2-desktop-notifications-with-libnotify: backlog
   3-3-browser-notifications-for-remote-dashboard-users: backlog
   3-4-pause-and-resume-monitoring-controls: backlog
