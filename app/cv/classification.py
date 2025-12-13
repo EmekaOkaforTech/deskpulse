@@ -56,11 +56,11 @@ class PostureClassifier:
         """
         Classify posture as 'good' or 'bad' based on landmark geometry.
 
-        Algorithm:
-        1. Extract shoulder and hip landmarks (left/right pairs)
-        2. Calculate midpoint of shoulders and hips
-        3. Compute angle from vertical using atan2
-        4. Compare to threshold (default 15°)
+        Algorithm (Enhanced):
+        1. Extract shoulder, hip, and nose landmarks
+        2. Calculate shoulder-hip angle (detects forward lean)
+        3. Calculate nose-shoulder angle (detects downward slouch)
+        4. Bad posture if EITHER angle exceeds threshold
 
         Args:
             landmarks: MediaPipe NormalizedLandmarkList or None
@@ -69,29 +69,32 @@ class PostureClassifier:
             str: 'good', 'bad', or None (if user absent)
 
         Technical Notes:
-        - Angle > threshold indicates forward lean (bad posture)
-        - Absolute value handles both forward and backward lean
-        - None return indicates user absent (no landmarks detected)
-        - Computation cost: ~0.1ms (negligible vs 150-200ms MediaPipe)
+        - Shoulder-hip angle: Detects forward lean (chest toward desk)
+        - Nose-shoulder angle: Detects slouching (head/back rounded forward)
+        - Combined approach catches both common bad posture types
+        - Computation cost: ~0.2ms (still negligible vs 150-200ms MediaPipe)
+
+        Posture Types Detected:
+        - Forward lean: Shoulders ahead of hips horizontally
+        - Downward slouch: Head/nose forward of shoulders, rounded back
+        - Both: Combined forward lean + slouch (worst posture)
 
         Landmark Visibility:
-        - MediaPipe provides visibility scores (0.0-1.0) for each landmark
-        - Current algorithm uses landmarks regardless of individual visibility
-        - Relies on MediaPipe's min_tracking_confidence=0.5 (Story 2.2) to filter
-          unreliable detections at the source
-        - If future testing reveals accuracy issues, consider checking shoulder/hip
-          visibility scores explicitly before classification
+        - Relies on MediaPipe's min_tracking_confidence=0.5 (Story 2.2)
+        - Nose landmark visibility typically high when user present
         """
         if landmarks is None:
             return None  # User absent, no classification possible
 
         try:
             # Extract key landmarks using MediaPipe indices
+            # Landmark 0: NOSE
             # Landmark 11: LEFT_SHOULDER
             # Landmark 12: RIGHT_SHOULDER
             # Landmark 23: LEFT_HIP
             # Landmark 24: RIGHT_HIP
             if self.mp_pose:
+                nose = landmarks.landmark[self.mp_pose.PoseLandmark.NOSE]
                 left_shoulder = landmarks.landmark[
                     self.mp_pose.PoseLandmark.LEFT_SHOULDER
                 ]
@@ -106,6 +109,7 @@ class PostureClassifier:
                 ]
             else:
                 # Fallback for tests with mock landmarks
+                nose = landmarks.landmark[0]
                 left_shoulder = landmarks.landmark[11]
                 right_shoulder = landmarks.landmark[12]
                 left_hip = landmarks.landmark[23]
@@ -119,26 +123,44 @@ class PostureClassifier:
             hip_x = (left_hip.x + right_hip.x) / 2
             hip_y = (left_hip.y + right_hip.y) / 2
 
-            # Calculate angle from vertical (0° = perfect upright)
+            # === Check 1: Shoulder-Hip Angle (Forward Lean Detection) ===
             # dx: horizontal displacement (positive = shoulders forward of hips)
             # dy: vertical displacement (positive = hips below shoulders, expected)
             # Note: MediaPipe y increases downward, so hip_y > shoulder_y for upright
-            dx = shoulder_x - hip_x
-            dy = hip_y - shoulder_y
+            shoulder_hip_dx = shoulder_x - hip_x
+            shoulder_hip_dy = hip_y - shoulder_y
 
-            # Angle in degrees (positive = leaning forward)
-            # atan2(dx, dy) gives angle from vertical axis
-            angle = math.degrees(math.atan2(dx, dy))
+            # Angle from vertical (0° = perfect upright torso)
+            shoulder_hip_angle = math.degrees(
+                math.atan2(shoulder_hip_dx, shoulder_hip_dy)
+            )
 
-            # Classify based on threshold
-            if abs(angle) <= self.angle_threshold:
-                posture_state = 'good'
-            else:
+            # === Check 2: Nose-Shoulder Angle (Slouch Detection) ===
+            # When slouching, head moves forward and down relative to shoulders
+            # dx: horizontal displacement (positive = nose forward of shoulders)
+            # dy: vertical displacement (positive = shoulders below nose, expected)
+            nose_shoulder_dx = nose.x - shoulder_x
+            nose_shoulder_dy = shoulder_y - nose.y
+
+            # Angle from vertical (0° = head directly above shoulders)
+            nose_shoulder_angle = math.degrees(
+                math.atan2(nose_shoulder_dx, nose_shoulder_dy)
+            )
+
+            # === Classification: Bad if EITHER angle exceeds threshold ===
+            is_forward_lean = abs(shoulder_hip_angle) > self.angle_threshold
+            is_slouching = abs(nose_shoulder_angle) > self.angle_threshold
+
+            if is_forward_lean or is_slouching:
                 posture_state = 'bad'
+            else:
+                posture_state = 'good'
 
             logger.debug(
                 f"Posture classified: {posture_state} "
-                f"(angle={angle:.1f}°, threshold={self.angle_threshold}°)"
+                f"(shoulder-hip={shoulder_hip_angle:.1f}°, "
+                f"nose-shoulder={nose_shoulder_angle:.1f}°, "
+                f"threshold={self.angle_threshold}°)"
             )
 
             return posture_state
