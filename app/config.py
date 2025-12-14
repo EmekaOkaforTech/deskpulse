@@ -241,8 +241,9 @@ class Config:
     )
 
     # PRESERVED from Story 1.1 - Network binding (NFR-S2)
-    HOST = "127.0.0.1"
-    PORT = 5000
+    # Read from config.ini [dashboard] section, fallback to 127.0.0.1 (secure default)
+    HOST = get_ini_value("dashboard", "host", "127.0.0.1")
+    PORT = get_ini_int("dashboard", "port", 5000)
 
     # Database path (from Story 1.1/1.2)
     DATABASE_PATH = os.path.join(os.getcwd(), "data", "deskpulse.db")
@@ -263,8 +264,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     LOG_LEVEL = "DEBUG"
     MOCK_CAMERA = False
-    # Allow network access via FLASK_HOST environment variable
-    HOST = os.environ.get("FLASK_HOST") or "127.0.0.1"
+    # Inherit HOST from base Config (reads from config.ini)
 
 
 class TestingConfig(Config):

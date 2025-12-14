@@ -1,13 +1,15 @@
 """
-Unit tests for alert threshold tracking and state management.
+Unit tests for alert threshold tracking and desktop notifications.
 
 Story 3.1: Alert Threshold Tracking and State Management
+Story 3.2: Desktop Notifications with libnotify
 """
 
 import pytest
 import time
 from unittest.mock import patch, Mock
 from app.alerts.manager import AlertManager
+from app.alerts.notifier import send_desktop_notification, send_alert_notification
 
 
 class TestAlertManager:
@@ -171,6 +173,79 @@ class TestAlertManager:
         alert_manager.pause_monitoring()
         status = alert_manager.get_monitoring_status()
         assert status['monitoring_active'] is False
+
+
+class TestDesktopNotifications:
+    """Desktop notification delivery tests."""
+
+    @patch('subprocess.run')
+    def test_send_desktop_notification_success(self, mock_subprocess, app_context):
+        """Test successful notification delivery."""
+        mock_subprocess.return_value = Mock(returncode=0, stderr='')
+        result = send_desktop_notification("Test", "Message")
+        assert result is True
+        mock_subprocess.assert_called_once_with(
+            ['notify-send', 'Test', 'Message',
+             '--icon=dialog-warning', '--urgency=normal'],
+            capture_output=True, text=True, timeout=5
+        )
+
+    @patch('subprocess.run')
+    def test_send_desktop_notification_disabled_config(self, mock_subprocess, app_context):
+        """Test config disable."""
+        app_context.config['NOTIFICATION_ENABLED'] = False
+        result = send_desktop_notification("Test", "Message")
+        assert result is False
+        mock_subprocess.assert_not_called()
+
+    @patch('subprocess.run')
+    def test_send_desktop_notification_not_found(self, mock_subprocess, app_context):
+        """Test libnotify not installed."""
+        mock_subprocess.side_effect = FileNotFoundError()
+        result = send_desktop_notification("Test", "Message")
+        assert result is False
+
+    @patch('subprocess.run')
+    def test_send_desktop_notification_timeout(self, mock_subprocess, app_context):
+        """Test notify-send timeout."""
+        import subprocess
+        mock_subprocess.side_effect = subprocess.TimeoutExpired('notify-send', 5)
+        result = send_desktop_notification("Test", "Message")
+        assert result is False
+
+    @patch('subprocess.run')
+    def test_send_desktop_notification_failure(self, mock_subprocess, app_context):
+        """Test non-zero return code."""
+        mock_subprocess.return_value = Mock(returncode=1, stderr='D-Bus error')
+        result = send_desktop_notification("Test", "Message")
+        assert result is False
+
+    @patch('app.alerts.notifier.send_desktop_notification')
+    def test_send_alert_notification_10min(self, mock_notify, app_context):
+        """Test 10 minute alert."""
+        mock_notify.return_value = True
+        result = send_alert_notification(600)
+        mock_notify.assert_called_once_with(
+            "DeskPulse",
+            "You've been in bad posture for 10 minutes. Time for a posture check!"
+        )
+        assert result is True
+
+    @patch('app.alerts.notifier.send_desktop_notification')
+    def test_send_alert_notification_15min(self, mock_notify, app_context):
+        """Test 15 minute duration."""
+        mock_notify.return_value = True
+        send_alert_notification(900)
+        call_args = mock_notify.call_args[0]
+        assert "15 minutes" in call_args[1]
+
+    @patch('app.alerts.notifier.send_desktop_notification')
+    def test_send_alert_notification_edge_case(self, mock_notify, app_context):
+        """Test unexpectedly low duration."""
+        mock_notify.return_value = True
+        send_alert_notification(30)
+        call_args = mock_notify.call_args[0]
+        assert "a while" in call_args[1]
 
 
 @pytest.fixture

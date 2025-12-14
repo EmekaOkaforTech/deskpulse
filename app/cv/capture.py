@@ -5,6 +5,11 @@ This module provides frame capture from USB webcams with configurable
 resolution and FPS targeting for Raspberry Pi 4/5 hardware.
 """
 
+import os
+# Disable OBSENSOR backend before importing cv2 (Raspberry Pi fix)
+# OBSENSOR is for Orbbec 3D cameras and interferes with USB webcams
+os.environ['OPENCV_VIDEOIO_PRIORITY_OBSENSOR'] = '0'
+
 import cv2
 import logging
 from flask import current_app
@@ -64,18 +69,44 @@ class CameraCapture:
             bool: True if camera opened successfully, False otherwise
         """
         try:
-            # Use V4L2 backend for Linux/Raspberry Pi compatibility
-            self.cap = cv2.VideoCapture(self.camera_device, cv2.CAP_V4L2)
+            # Raspberry Pi workaround: Add small delay before camera access
+            import time
+            time.sleep(0.5)
+
+            # Use integer device index directly (V4L2 backend requirement)
+            # V4L2 on Raspberry Pi does NOT support string paths like "/dev/video0"
+            # Must use integer index (0, 1, 2, etc.)
+            if isinstance(self.camera_device, str):
+                # If string path provided, extract index
+                import re
+                match = re.search(r'/dev/video(\d+)', self.camera_device)
+                device_index = int(match.group(1)) if match else 0
+            else:
+                device_index = self.camera_device
+
+            logger.info("Attempting to open camera device %d", device_index)
+
+            # Use default backend (V4L2 causes issues on some Raspberry Pi systems)
+            # OpenCV will automatically select the best available backend
+            self.cap = cv2.VideoCapture(device_index)
 
             if not self.cap.isOpened():
-                logger.error(f"Camera device {self.camera_device} not found")
+                logger.error("Camera device %d not found", device_index)
                 return False
 
             # Set camera properties from config
             width, height = get_resolution_dimensions(self.resolution)
+
+            # Set FOURCC format to MJPEG for better compatibility
+            # Based on: https://forums.raspberrypi.com/viewtopic.php?t=305804
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             self.cap.set(cv2.CAP_PROP_FPS, self.fps_target)
+
+            # Set buffer size to 1 to minimize latency
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             # Camera warmup: discard first 2 frames to prevent corruption
             for _ in range(2):
@@ -86,7 +117,7 @@ class CameraCapture:
                     return False
 
             self.is_active = True
-            logger.info(f"Camera connected: /dev/video{self.camera_device} at {self.resolution}")
+            logger.info("Camera connected: device %d at %s", device_index, self.resolution)
             return True
 
         except Exception:

@@ -41,8 +41,8 @@ def test_blueprints_registered(app):
 
 def test_health_check(client):
     """Test the health check endpoint."""
-    response = client.get("/")
+    response = client.get("/health")
     assert response.status_code == 200
     data = response.get_json()
     assert data["status"] == "ok"
-    assert data["service"] == "DeskPulse"
+    assert data["service"] == "deskpulse"

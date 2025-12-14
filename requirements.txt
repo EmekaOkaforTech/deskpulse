@@ -1,8 +1,9 @@
 flask==3.0.0
 flask-socketio==5.3.5
 python-socketio==5.10.0
-opencv-python==4.12.0.88
+opencv-python>=4.8.0,<4.10.0  # Compatible with numpy<2
 mediapipe>=0.10.18,<0.11.0  # Story 2.2 - Pose landmark detection
+numpy<2  # Required by MediaPipe
 sdnotify>=0.3.2
 systemd-python>=235
 # NOTE: MediaPipe is compatible with ARM64 (Raspberry Pi OS 64-bit)

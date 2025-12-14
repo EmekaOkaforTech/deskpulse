@@ -19,6 +19,7 @@ except ImportError:
 from app.cv.capture import CameraCapture
 from app.cv.detection import PoseDetector
 from app.cv.classification import PostureClassifier
+from app.extensions import socketio
 
 logger = logging.getLogger('deskpulse.cv')
 
@@ -74,8 +75,14 @@ class CVPipeline:
         self.camera = None  # Initialized in start()
         self.detector = None
         self.classifier = None
+        self.alert_manager = None  # Story 3.1 - Initialized in start()
         self.running = False
         self.thread = None
+
+        # Camera state management (Story 2.7)
+        self.camera_state = 'disconnected'  # connected/degraded/disconnected
+        self.last_watchdog_ping = 0
+        self.watchdog_interval = 15  # Send watchdog ping every 15 seconds
 
         # Load FPS target from config (defaults to 10 FPS)
         self.fps_target = current_app.config.get(
@@ -108,22 +115,37 @@ class CVPipeline:
 
         try:
             # Initialize CV components (requires Flask app context)
+            # Import AlertManager here to ensure Flask app context is available
+            # CRITICAL: AlertManager.__init__ calls current_app.config.get()
+            # current_app only available inside Flask app context (after create_app())
+            # Module-level import would fail: "Working outside of application context"
+            from app.alerts.manager import AlertManager
+            from app.alerts.notifier import send_alert_notification  # Story 3.2
+
             self.camera = CameraCapture()
             self.detector = PoseDetector()
             self.classifier = PostureClassifier()
+            self.alert_manager = AlertManager()  # Story 3.1
+
+            # Store as instance attribute for _processing_loop access
+            self.send_alert_notification = send_alert_notification  # Story 3.2
 
             # Initialize camera (Story 2.1 pattern)
             if not self.camera.initialize():
                 logger.error(
-                    "Failed to initialize camera - CV pipeline not started"
+                    "Failed to initialize camera"
                 )
-                return False
+                self._emit_camera_status('disconnected')
+                # Don't fail startup - camera may connect later
+                # Thread will retry connection
 
             # Start processing thread
+            # NOTE: daemon=False to allow proper camera access (OpenCV limitation)
+            # Cleanup registered via atexit in app/__init__.py
             self.running = True
             self.thread = threading.Thread(
                 target=self._processing_loop,
-                daemon=True,  # Thread terminates with main process
+                daemon=False,  # Non-daemon for camera access compatibility
                 name=f'CVPipeline-{id(self)}'
             )
             self.thread.start()
@@ -165,71 +187,161 @@ class CVPipeline:
 
         logger.info("CV pipeline stopped")
 
+    def _send_watchdog_ping(self) -> None:
+        """
+        Send systemd watchdog ping (Layer 3 safety net).
+
+        Pings sent every 15 seconds to systemd. If no ping received within
+        30 seconds (WatchdogSec=30 in deskpulse.service), systemd restarts
+        the service.
+
+        Architecture: systemd Watchdog Safety Net (architecture.md:825-854)
+        """
+        current_time = time.time()
+
+        if current_time - self.last_watchdog_ping > self.watchdog_interval:
+            try:
+                import sdnotify
+                notifier = sdnotify.SystemdNotifier()
+                notifier.notify("WATCHDOG=1")
+                self.last_watchdog_ping = current_time
+                logger.debug("systemd watchdog ping sent")
+
+            except Exception as e:
+                # Don't crash if sdnotify fails (may not be in systemd)
+                logger.debug(f"Watchdog ping failed (not in systemd?): {e}")
+
+    def _emit_camera_status(self, state: str) -> None:
+        """
+        Emit camera status to all connected SocketIO clients.
+
+        Args:
+            state: Camera state ('connected', 'degraded', 'disconnected')
+
+        Raises:
+            ValueError: If state is not a valid camera state
+        """
+        # Validate state value
+        valid_states = ['connected', 'degraded', 'disconnected']
+        if state not in valid_states:
+            raise ValueError(
+                f"Invalid camera state '{state}', "
+                f"must be one of {valid_states}"
+            )
+
+        try:
+            socketio.emit(
+                'camera_status',
+                {'state': state, 'timestamp': datetime.now().isoformat()}
+            )
+            logger.info(f"Camera status emitted: {state}")
+
+        except Exception as e:
+            # Don't crash if SocketIO emit fails
+            logger.error(f"Failed to emit camera status: {e}")
+
     def _processing_loop(self) -> None:
         """
-        Main CV processing loop running in dedicated thread.
+        CV processing loop with 3-layer camera recovery.
 
-        Architecture:
-        - Multi-threaded with queue-based messaging
-        - OpenCV/MediaPipe release GIL during C/C++ processing (true
-          parallelism)
-        - FPS throttling prevents excessive CPU usage
-        - Exception handling prevents thread crashes during 8+ hour operation
+        Layer 1: Quick retries (3 attempts, ~2-3 seconds) for transient
+                 USB glitches
+        Layer 2: Long retry cycle (10 seconds) for sustained disconnects
+                 (NFR-R4)
+        Layer 3: systemd watchdog safety net (30 seconds) for Python crashes
 
-        Performance:
-        - Target 10 FPS (100ms per frame budget)
-        - MediaPipe: 150-200ms (exceeds budget, but acceptable for monitoring)
-        - Actual FPS: 5-7 FPS on Pi 4, 8-10 FPS on Pi 5
-        - Queue maxsize=1 ensures dashboard shows current state
-
-        Error Handling:
-        - Camera failures logged but don't crash thread (Story 2.7 will add
-          reconnection)
-        - MediaPipe errors logged and frame skipped
-        - Thread continues running despite individual frame errors
+        Architecture: Camera Failure Handling Strategy
+                      (architecture.md:789-865)
         """
-        frame_interval = 1.0 / self.fps_target  # 0.1 sec for 10 FPS
-        last_frame_time = 0
-        camera_failure_count = 0
-        max_failure_log_rate = 10  # Log every 10th failure after threshold
+        logger.info("CV processing loop started")
 
-        logger.info(
-            f"CV processing loop started: fps_target={self.fps_target}, "
-            f"frame_interval={frame_interval:.3f}s"
-        )
+        # Layer 1 recovery constants
+        MAX_QUICK_RETRIES = 3
+        QUICK_RETRY_DELAY = 1  # seconds
+
+        # Layer 2 recovery constant
+        LONG_RETRY_DELAY = 10  # seconds (NFR-R4 requirement)
+
+        # Frame timing
+        frame_delay = 1.0 / self.fps_target
 
         while self.running:
-            current_time = time.time()
-
-            # Throttle to target FPS
-            if current_time - last_frame_time < frame_interval:
-                time.sleep(0.01)  # Sleep 10ms to avoid busy-waiting
-                continue
-
-            last_frame_time = current_time
-
             try:
-                # Step 1: Capture frame (Story 2.1)
-                success, frame = self.camera.read_frame()
-                if not success:
-                    # Camera failure - log with rate limiting to prevent spam
-                    # Story 2.7 will add reconnection logic
-                    camera_failure_count += 1
-                    if camera_failure_count % max_failure_log_rate == 1:
-                        logger.warning(
-                            f"Frame capture failed (count: "
-                            f"{camera_failure_count}) - skipping frame"
-                        )
-                    time.sleep(0.1)  # Brief pause before retry
-                    continue
+                # Send watchdog ping (Layer 3 safety net)
+                # CRITICAL: Positioned at top of loop to ensure pings
+                # continue during Layer 2 long retry (10 sec sleep).
+                # Timing: 10s sleep + processing < 30s timeout.
+                self._send_watchdog_ping()
 
-                # Reset failure count on success
-                if camera_failure_count > 0:
-                    logger.info(
-                        f"Camera recovered after {camera_failure_count} "
-                        f"failures"
-                    )
-                    camera_failure_count = 0
+                # Attempt frame capture
+                ret, frame = self.camera.read_frame()
+
+                if not ret:
+                    # ============================================
+                    # LAYER 1: Quick Retry Recovery (2-3 sec)
+                    # ============================================
+                    # Frame read failed - enter degradation
+                    if self.camera_state == 'connected':
+                        self.camera_state = 'degraded'
+                        logger.warning("Camera degraded: frame read failed")
+                        self._emit_camera_status('degraded')
+
+                    # Quick retry loop for transient failures
+                    reconnected = False
+                    for attempt in range(1, MAX_QUICK_RETRIES + 1):
+                        logger.info(
+                            f"Camera quick retry {attempt}/"
+                            f"{MAX_QUICK_RETRIES}"
+                        )
+
+                        # Release and reinitialize camera
+                        self.camera.release()
+                        time.sleep(QUICK_RETRY_DELAY)
+
+                        if self.camera.initialize():
+                            ret, frame = self.camera.read_frame()
+                            if ret:
+                                self.camera_state = 'connected'
+                                logger.info(
+                                    f"Camera reconnected after {attempt} "
+                                    f"quick retries"
+                                )
+                                self._emit_camera_status('connected')
+                                reconnected = True
+                                break
+
+                    if reconnected:
+                        # Success - continue to normal processing
+                        pass
+                    else:
+                        # ==========================================
+                        # LAYER 2: Long Retry Cycle (10 sec - NFR-R4)
+                        # ==========================================
+                        # All quick retries failed - sustained disconnect
+                        self.camera_state = 'disconnected'
+                        logger.error(
+                            "Camera disconnected: all quick retries failed"
+                        )
+                        self._emit_camera_status('disconnected')
+
+                        # Wait 10 seconds before next retry cycle
+                        # NFR-R4: 10-second camera reconnection requirement
+                        logger.info(
+                            f"Waiting {LONG_RETRY_DELAY}s before next "
+                            f"reconnection attempt"
+                        )
+                        time.sleep(LONG_RETRY_DELAY)
+                        continue  # Skip frame processing, retry capture
+
+                else:
+                    # ======================================
+                    # Frame read successful - process it
+                    # ======================================
+                    # Restore state to connected if recovering
+                    if self.camera_state != 'connected':
+                        self.camera_state = 'connected'
+                        logger.info("Camera restored to connected state")
+                        self._emit_camera_status('connected')
 
                 # Step 2: Detect pose landmarks (Story 2.2)
                 # NOTE: detect_landmarks() releases GIL during MediaPipe
@@ -240,6 +352,49 @@ class CVPipeline:
                 posture_state = self.classifier.classify_posture(
                     detection_result['landmarks']
                 )
+
+                # ==================================================
+                # Story 3.1: Alert Threshold Tracking
+                # ==================================================
+                # Check for alerts (wrapped in try/except to prevent CV pipeline crashes)
+                try:
+                    alert_result = self.alert_manager.process_posture_update(
+                        posture_state,
+                        detection_result['user_present']
+                    )
+                except Exception as e:
+                    # Alert processing should never crash CV pipeline
+                    logger.exception(f"Alert processing error: {e}")
+                    # Use safe default: no alert
+                    alert_result = {
+                        'should_alert': False,
+                        'duration': 0,
+                        'threshold_reached': False
+                    }
+                # ==================================================
+
+                # ==================================================
+                # Story 3.2: Alert Notification Delivery
+                # ==================================================
+                if alert_result['should_alert']:
+                    try:
+                        # Desktop notification (libnotify)
+                        self.send_alert_notification(alert_result['duration'])
+
+                        # Browser notification (SocketIO - Story 3.3 preparation)
+                        # NOTE: socketio import at module level is safe - already
+                        # initialized in extensions.py before CV pipeline starts
+                        from app.extensions import socketio
+                        socketio.emit('alert_triggered', {
+                            'message': f"Bad posture detected for {alert_result['duration'] // 60} minutes",
+                            'duration': alert_result['duration'],
+                            'timestamp': datetime.now().isoformat()
+                        }, broadcast=True)
+
+                    except Exception as e:
+                        # Notification failures never crash CV pipeline
+                        logger.exception(f"Notification delivery failed: {e}")
+                # ==================================================
 
                 # Step 4: Draw skeleton overlay with color-coded posture
                 overlay_color = self.classifier.get_landmark_color(
@@ -271,7 +426,9 @@ class CVPipeline:
                     'posture_state': posture_state,
                     'user_present': detection_result['user_present'],
                     'confidence_score': detection_result['confidence'],
-                    'frame_base64': frame_base64
+                    'frame_base64': frame_base64,
+                    'camera_state': self.camera_state,  # Story 2.7
+                    'alert': alert_result  # Story 3.1 - consumed by Story 3.2, 3.3, 4.1
                 }
 
                 # Step 7: Put result in queue (non-blocking, latest-wins)
@@ -279,8 +436,17 @@ class CVPipeline:
                     cv_queue.put_nowait(cv_result)
                 except queue.Full:
                     # Queue full - discard oldest result and add new one
-                    cv_queue.get()  # Blocking OK - queue is full (maxsize=1)
-                    cv_queue.put_nowait(cv_result)
+                    # Use get_nowait to prevent blocking, then put with timeout
+                    try:
+                        cv_queue.get_nowait()
+                    except queue.Empty:
+                        pass  # Queue emptied by consumer, continue
+                    # Use put with timeout to handle race condition
+                    try:
+                        cv_queue.put(cv_result, timeout=0.1)
+                    except queue.Full:
+                        # Still full after get - log and drop frame
+                        logger.warning("CV queue still full, dropping frame")
 
                 logger.debug(
                     f"CV frame processed: posture={posture_state}, "
@@ -288,12 +454,33 @@ class CVPipeline:
                     f"confidence={detection_result['confidence']:.2f}"
                 )
 
-            except (RuntimeError, ValueError, KeyError, OSError, TypeError,
+                # Frame rate throttling
+                time.sleep(frame_delay)
+
+            except OSError as e:
+                # ======================================================
+                # Camera hardware errors (USB disconnect, device failure)
+                # ======================================================
+                logger.exception(f"Camera hardware error: {e}")
+
+                # Set camera state to degraded - this is a camera issue
+                if self.camera_state == 'connected':
+                    self.camera_state = 'degraded'
+                    self._emit_camera_status('degraded')
+
+                # Brief pause before retry
+                time.sleep(1)
+
+            except (RuntimeError, ValueError, KeyError, TypeError,
                     AttributeError) as e:
-                # Log exception but don't crash thread
-                # Specific exceptions to avoid catching KeyboardInterrupt/SystemExit
+                # ======================================================
+                # CV processing errors (MediaPipe, encoding, etc.)
+                # These are NOT camera failures - don't change camera_state
+                # ======================================================
                 logger.exception(f"CV processing error: {e}")
-                # Continue loop - next frame may succeed
-                time.sleep(0.1)  # Brief pause to avoid error spam
+
+                # Continue loop - Layer 3 (systemd watchdog) handles
+                # true crashes if we stop sending watchdog pings
+                time.sleep(1)  # Brief pause to avoid error spam
 
         logger.info("CV processing loop terminated")
