@@ -77,6 +77,21 @@
         <strong>Last Update:</strong> <span id="last-update">--:--:--</span>
     </p>
 </article>
+
+<!-- Network Settings -->
+<article>
+    <header><h3>Network Settings</h3></header>
+    <label>
+        <input type="checkbox" id="network-access-toggle" role="switch">
+        Enable Network Access (Allow remote dashboard access)
+    </label>
+    <footer>
+        <small id="network-status">
+            Current: <span id="current-host">Checking...</span><br>
+            <em>Changes require app restart to take effect</em>
+        </small>
+    </footer>
+</article>
 {% endblock %}
 
 {% block scripts %}
