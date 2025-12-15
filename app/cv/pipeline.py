@@ -120,7 +120,7 @@ class CVPipeline:
             # current_app only available inside Flask app context (after create_app())
             # Module-level import would fail: "Working outside of application context"
             from app.alerts.manager import AlertManager
-            from app.alerts.notifier import send_alert_notification  # Story 3.2
+            from app.alerts.notifier import send_alert_notification, send_confirmation  # Story 3.2, 3.5
 
             self.camera = CameraCapture()
             self.detector = PoseDetector()
@@ -129,6 +129,7 @@ class CVPipeline:
 
             # Store as instance attribute for _processing_loop access
             self.send_alert_notification = send_alert_notification  # Story 3.2
+            self.send_confirmation = send_confirmation  # Story 3.5
 
             # Initialize camera (Story 2.1 pattern)
             if not self.camera.initialize():
@@ -394,6 +395,31 @@ class CVPipeline:
                     except Exception as e:
                         # Notification failures never crash CV pipeline
                         logger.exception(f"Notification delivery failed: {e}")
+                # ==================================================
+
+                # ==================================================
+                # Story 3.5: Posture Correction Confirmation
+                # ==================================================
+                if alert_result.get('posture_corrected'):
+                    try:
+                        # Desktop notification (send_confirmation imported at module level)
+                        self.send_confirmation(alert_result['previous_duration'])
+
+                        # Browser notification (SocketIO)
+                        from app.extensions import socketio
+                        socketio.emit('posture_corrected', {
+                            'message': '✓ Good posture restored! Nice work!',
+                            'previous_duration': alert_result['previous_duration'],
+                            'timestamp': datetime.now().isoformat()
+                        }, broadcast=True)
+
+                        logger.info(
+                            f"Posture correction confirmed: {alert_result['previous_duration']}s"
+                        )
+
+                    except Exception as e:
+                        # Confirmation failures never crash CV pipeline
+                        logger.exception(f"Correction notification failed: {e}")
                 # ==================================================
 
                 # Step 4: Draw skeleton overlay with color-coded posture
