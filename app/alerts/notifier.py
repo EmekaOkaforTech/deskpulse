@@ -110,3 +110,35 @@ def send_alert_notification(bad_posture_duration):
     )
 
     return desktop_success
+
+
+def send_confirmation(previous_bad_duration):
+    """
+    Send positive confirmation when posture is corrected.
+
+    UX Design: Positive framing, celebration, brief encouragement.
+    Sends desktop notification only (browser via SocketIO in pipeline).
+
+    Args:
+        previous_bad_duration: How long user was in bad posture (seconds)
+
+    Returns:
+        bool: True if notification sent successfully
+
+    Story 3.5: Posture Correction Confirmation Feedback
+    """
+    # Calculate duration for logging
+    minutes = previous_bad_duration // 60
+
+    # UX Design: "Gently persistent, not demanding" - positive celebration
+    title = "DeskPulse"
+    message = "✓ Good posture restored! Nice work!"
+
+    # Send desktop notification (reuses existing infrastructure)
+    desktop_success = send_desktop_notification(title, message)
+
+    logger.info(
+        f"Posture correction confirmed: previous duration {minutes}m, desktop_sent={desktop_success}"
+    )
+
+    return desktop_success

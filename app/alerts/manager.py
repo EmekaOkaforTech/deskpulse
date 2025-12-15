@@ -123,7 +123,31 @@ class AlertManager:
             }
 
         elif posture_state == 'good':
-            # Reset tracking when posture improves
+            # Check if this is a correction after an alert (Story 3.5)
+            was_in_bad_posture = self.bad_posture_start_time is not None
+            had_received_alert = self.last_alert_time is not None
+
+            if was_in_bad_posture and had_received_alert:
+                duration = int(current_time - self.bad_posture_start_time)
+
+                logger.info(
+                    f"Posture corrected after alert - bad duration was {duration}s"
+                )
+
+                # Reset tracking BEFORE returning (prevents double-trigger)
+                self.bad_posture_start_time = None
+                self.last_alert_time = None
+
+                # Return correction event (Story 3.5)
+                return {
+                    'should_alert': False,
+                    'duration': 0,
+                    'threshold_reached': False,
+                    'posture_corrected': True,        # NEW
+                    'previous_duration': duration      # NEW
+                }
+
+            # Regular good posture (no alert) - existing reset logic
             if self.bad_posture_start_time is not None:
                 duration = int(current_time - self.bad_posture_start_time)
                 logger.info(

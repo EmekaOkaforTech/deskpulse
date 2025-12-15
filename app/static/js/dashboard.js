@@ -5,8 +5,17 @@
  * Story 2.6: SocketIO real-time updates ACTIVATED
  */
 
+// Debug mode toggle - set to false for production to reduce console noise
+const DEBUG = false;
+
 // Initialize SocketIO connection on page load
 let socket;
+
+// Track monitoring state to prevent posture updates from overwriting paused UI
+// Story 3.4: Prevents race condition where posture_update events (10 FPS)
+// overwrite the "Monitoring Paused" UI immediately after pause
+// Initialize to null until first monitoring_status received (prevents race condition)
+let monitoringActive = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DeskPulse Dashboard loaded - initializing SocketIO...');
@@ -20,14 +29,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize browser notifications (Story 3.3)
     initBrowserNotifications();
 
+    // Initialize pause/resume controls (Story 3.4)
+    initPauseResumeControls();
+
     // Connection event handlers
     socket.on('connect', function() {
-        console.log('SocketIO connected:', socket.id);
+        if (DEBUG) console.log('SocketIO connected:', socket.id);
         updateConnectionStatus('connected');
     });
 
     socket.on('disconnect', function() {
-        console.log('SocketIO disconnected');
+        if (DEBUG) console.log('SocketIO disconnected');
         updateConnectionStatus('disconnected');
 
         // Show reconnection feedback (SocketIO auto-reconnects by default)
@@ -48,12 +60,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     socket.on('status', function(data) {
-        console.log('Server status:', data.message);
+        if (DEBUG) console.log('Server status:', data.message);
     });
 
     // CV update handler - CORE REAL-TIME FUNCTIONALITY
     socket.on('posture_update', function(data) {
-        console.log('Posture update received:', data.posture_state);
+        if (DEBUG) console.log('Posture update received:', data.posture_state);
         updatePostureStatus(data);
         updateCameraFeed(data.frame_base64);
         updateTimestamp();
@@ -61,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Camera status handler - Story 2.7
     socket.on('camera_status', function(data) {
-        console.log('Camera status received:', data.state);
+        if (DEBUG) console.log('Camera status received:', data.state);
         updateCameraStatus(data.state);
     });
 
@@ -74,13 +86,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Alert triggered handler - Story 3.3 Task 2
     socket.on('alert_triggered', function(data) {
-        console.log('Alert triggered:', data);
+        if (DEBUG) console.log('Alert triggered:', data);
 
         // Send browser notification if permission granted
         sendBrowserNotification(data);
 
         // Show dashboard alert banner (Task 3)
         showDashboardAlert(data.message, data.duration);
+    });
+
+    // Monitoring status handler - Story 3.4 Task 3
+    socket.on('monitoring_status', function(data) {
+        if (DEBUG) console.log('Monitoring status update:', data);
+        updateMonitoringUI(data);
     });
 
     // Set initial timestamp
@@ -180,6 +198,19 @@ function updateCameraStatus(state) {
  * @param {number} data.confidence_score - Detection confidence (0.0-1.0)
  */
 function updatePostureStatus(data) {
+    // Story 3.4: Don't update UI if monitoring is paused or not yet initialized
+    // Prevents posture_update events (10 FPS) from overwriting "Monitoring Paused" UI
+    // Also prevents race condition where posture_update arrives before initial monitoring_status
+    if (monitoringActive === false) {
+        if (DEBUG) console.log('Monitoring paused - skipping posture UI update');
+        return;
+    }
+
+    if (monitoringActive === null) {
+        if (DEBUG) console.log('Monitoring state not yet initialized - skipping posture UI update');
+        return;
+    }
+
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
     const postureMessage = document.getElementById('posture-message');
@@ -723,18 +754,196 @@ function clearDashboardAlert() {
 
 
 // ==================================================
-// Story 3.5 Integration Point: Posture Correction
+// Story 3.5: Posture Correction Confirmation Feedback
 // ==================================================
-// Uncomment when Story 3.5 implements posture_corrected event emission
-// socket.on('posture_corrected', function(data) {
-//     console.log('Posture correction confirmed:', data);
-//
-//     // Clear alert banner
-//     clearDashboardAlert();
-//
-//     // Show positive feedback toast (green, encouraging)
-//     showToast(data.message || 'Good posture restored!', 'success');
-// });
+/**
+ * Handle posture_corrected event from server.
+ *
+ * Displays positive confirmation when user corrects posture after alert.
+ * UX Design: Green color, checkmark, celebration message, brief display.
+ *
+ * Story 3.5: Posture Correction Confirmation Feedback
+ *
+ * @param {Object} data - Correction event data
+ * @param {string} data.message - Confirmation message
+ * @param {number} data.previous_duration - Bad posture duration (seconds)
+ * @param {string} data.timestamp - Event timestamp (ISO format)
+ */
+socket.on('posture_corrected', (data) => {
+    if (DEBUG) console.log('Posture correction confirmed:', data);
+
+    try {
+        // Clear alert banner (stale after correction)
+        clearDashboardAlert();
+
+        // Update posture message with positive feedback
+        const postureMessage = document.getElementById('posture-message');
+        if (postureMessage) {
+            postureMessage.textContent = data.message;  // "✓ Good posture restored! Nice work!"
+            postureMessage.style.color = '#10b981';     // Green (positive reinforcement)
+
+            // Auto-reset to normal after 5 seconds
+            setTimeout(() => {
+                postureMessage.style.color = '';  // Reset to default
+            }, 5000);
+        }
+
+        // Browser notification (if permission granted)
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('DeskPulse', {
+                body: data.message,
+                icon: '/static/img/logo.png',
+                tag: 'posture-corrected',          // Replace previous notification
+                requireInteraction: false          // Auto-dismiss (not persistent)
+            });
+        }
+
+        logger.info('Posture correction feedback displayed');
+
+    } catch (error) {
+        console.error('Error handling posture_corrected event:', error);
+    }
+});
+
+
+/**
+ * Initialize pause/resume monitoring controls - Story 3.4 Task 3.
+ * Sets up button click handlers and SocketIO connection state management.
+ */
+function initPauseResumeControls() {
+    const pauseBtn = document.getElementById('pause-btn');
+    const resumeBtn = document.getElementById('resume-btn');
+
+    // Defensive: Check buttons exist
+    if (!pauseBtn || !resumeBtn) {
+        console.error('Pause/resume buttons not found');
+        return;
+    }
+
+    // Pause button click handler
+    pauseBtn.addEventListener('click', function() {
+        // Check SocketIO connection
+        if (!socket || !socket.connected) {
+            console.warn('SocketIO not connected - cannot pause monitoring');
+            showToast('Connection error - please try again', 'error');
+            return;
+        }
+
+        // Optimistic UI: Show loading state immediately
+        pauseBtn.disabled = true;
+        const originalText = pauseBtn.textContent;
+        pauseBtn.textContent = '⏸ Pausing...';
+
+        socket.emit('pause_monitoring');
+        if (DEBUG) console.log('Pause monitoring requested');
+
+        // Re-enable button after timeout (safety fallback if broadcast fails)
+        setTimeout(function() {
+            if (pauseBtn.disabled) {
+                pauseBtn.disabled = false;
+                pauseBtn.textContent = originalText;
+            }
+        }, 3000);
+    });
+
+    // Resume button click handler
+    resumeBtn.addEventListener('click', function() {
+        // Check SocketIO connection
+        if (!socket || !socket.connected) {
+            console.warn('SocketIO not connected - cannot resume monitoring');
+            showToast('Connection error - please try again', 'error');
+            return;
+        }
+
+        // Optimistic UI: Show loading state immediately
+        resumeBtn.disabled = true;
+        const originalText = resumeBtn.textContent;
+        resumeBtn.textContent = '▶️ Resuming...';
+
+        socket.emit('resume_monitoring');
+        if (DEBUG) console.log('Resume monitoring requested');
+
+        // Re-enable button after timeout (safety fallback if broadcast fails)
+        setTimeout(function() {
+            if (resumeBtn.disabled) {
+                resumeBtn.disabled = false;
+                resumeBtn.textContent = originalText;
+            }
+        }, 3000);
+    });
+
+    if (DEBUG) console.log('Pause/resume controls initialized');
+}
+
+
+/**
+ * Update monitoring UI based on monitoring_status event - Story 3.4 Task 3.
+ * Handles pause/resume button visibility and status messaging.
+ *
+ * @param {Object} data - Monitoring status data
+ * @param {boolean} data.monitoring_active - True if monitoring active
+ * @param {number} data.threshold_seconds - Alert threshold (600)
+ * @param {number} data.cooldown_seconds - Alert cooldown (300)
+ */
+function updateMonitoringUI(data) {
+    const pauseBtn = document.getElementById('pause-btn');
+    const resumeBtn = document.getElementById('resume-btn');
+    const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+    const postureMessage = document.getElementById('posture-message');
+
+    // Defensive: Check elements exist
+    if (!pauseBtn || !resumeBtn) {
+        console.error('Pause/resume buttons not found');
+        return;
+    }
+
+    try {
+        // Update global monitoring state (prevents posture_update from overwriting paused UI)
+        monitoringActive = data.monitoring_active;
+
+        if (data.monitoring_active) {
+            // Monitoring active - show pause button
+            pauseBtn.style.display = 'inline-block';
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = '⏸ Pause Monitoring';
+            resumeBtn.style.display = 'none';
+
+            if (statusText) {
+                statusText.textContent = 'Monitoring Active';
+            }
+            // Status dot color will be updated by posture_update event
+
+        } else {
+            // Monitoring paused - show resume button
+            pauseBtn.style.display = 'none';
+            resumeBtn.style.display = 'inline-block';
+            resumeBtn.disabled = false;
+            resumeBtn.textContent = '▶️ Resume Monitoring';
+
+            if (statusText) {
+                statusText.textContent = '⏸ Monitoring Paused';
+            }
+
+            if (statusDot) {
+                statusDot.className = 'status-indicator status-offline';
+            }
+
+            if (postureMessage) {
+                postureMessage.textContent =
+                    'Privacy mode: Camera monitoring paused. Click "Resume" when ready.';
+            }
+
+            // Clear alert banner (stale alert)
+            clearDashboardAlert();
+        }
+
+        if (DEBUG) console.log('Monitoring UI updated:', data);
+
+    } catch (error) {
+        console.error('Error updating monitoring UI:', error);
+    }
+}
 
 
 /**
