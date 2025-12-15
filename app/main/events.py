@@ -5,8 +5,10 @@ import logging
 import time
 import queue
 from flask import request
+from flask_socketio import emit
 from app.extensions import socketio
 from app.cv.pipeline import cv_queue
+import app
 
 logger = logging.getLogger('deskpulse.socket')
 
@@ -41,6 +43,13 @@ def handle_connect():
         'message': 'Connected to DeskPulse',
         'timestamp': time.time()
     }, room=client_sid)
+
+    # Send initial monitoring status (Story 3.4)
+    from flask import current_app
+    cv_pipeline = getattr(current_app, 'cv_pipeline_test', None) or app.cv_pipeline
+    if cv_pipeline and cv_pipeline.alert_manager:
+        status = cv_pipeline.alert_manager.get_monitoring_status()
+        socketio.emit('monitoring_status', status, room=client_sid)
 
     # Track active client BEFORE starting thread (prevents race condition)
     with active_clients_lock:
@@ -192,6 +201,100 @@ def handle_alert_acknowledged(data):
         f"Alert acknowledged by client {client_sid} at {acknowledged_at}"
     )
     # Future: Store in analytics database (Story 4.x)
+
+
+@socketio.on('pause_monitoring')
+def handle_pause_monitoring():
+    """
+    Handle pause monitoring request from client - Story 3.4.
+
+    Client emits this event when user clicks "Pause Monitoring" button.
+    Pauses alert tracking while keeping camera feed active for transparency.
+
+    Architecture:
+    - Calls AlertManager.pause_monitoring() to update backend state
+    - Broadcasts monitoring_status to all connected clients (NFR-SC1)
+    - Single global monitoring state (one AlertManager instance)
+
+    Emits:
+        monitoring_status: Broadcast to all clients with monitoring state
+        error: Per-client error if cv_pipeline unavailable
+    """
+    from flask import current_app
+    client_sid = request.sid
+    logger.info(f"Pause monitoring requested by client {client_sid}")
+
+    try:
+        # Get cv_pipeline (test mode uses current_app.cv_pipeline_test)
+        cv_pipeline = getattr(current_app, 'cv_pipeline_test', None) or app.cv_pipeline
+
+        # Pause alert manager
+        if cv_pipeline and cv_pipeline.alert_manager:
+            cv_pipeline.alert_manager.pause_monitoring()
+
+            # Emit status update to all clients
+            status = cv_pipeline.alert_manager.get_monitoring_status()
+            emit('monitoring_status', status, broadcast=True)
+        else:
+            logger.error("CV pipeline not available - cannot pause monitoring")
+            # Emit error to requesting client only
+            socketio.emit('error', {
+                'message': 'Monitoring controls unavailable - camera service not started. '
+                          'Please wait for camera initialization or check system status.'
+            }, room=client_sid)
+    except Exception as e:
+        logger.exception(f"Error pausing monitoring: {e}")
+        socketio.emit('error', {
+            'message': 'Failed to pause monitoring. Try refreshing the page or check logs '
+                      'for details: sudo journalctl -u deskpulse'
+        }, room=client_sid)
+
+
+@socketio.on('resume_monitoring')
+def handle_resume_monitoring():
+    """
+    Handle resume monitoring request from client - Story 3.4.
+
+    Client emits this event when user clicks "Resume Monitoring" button.
+    Resumes alert tracking and resets bad posture timer.
+
+    Architecture:
+    - Calls AlertManager.resume_monitoring() to update backend state
+    - Broadcasts monitoring_status to all connected clients (NFR-SC1)
+    - Bad posture tracking starts fresh (doesn't count paused time)
+
+    Emits:
+        monitoring_status: Broadcast to all clients with monitoring state
+        error: Per-client error if cv_pipeline unavailable
+    """
+    from flask import current_app
+    client_sid = request.sid
+    logger.info(f"Resume monitoring requested by client {client_sid}")
+
+    try:
+        # Get cv_pipeline (test mode uses current_app.cv_pipeline_test)
+        cv_pipeline = getattr(current_app, 'cv_pipeline_test', None) or app.cv_pipeline
+
+        # Resume alert manager
+        if cv_pipeline and cv_pipeline.alert_manager:
+            cv_pipeline.alert_manager.resume_monitoring()
+
+            # Emit status update to all clients
+            status = cv_pipeline.alert_manager.get_monitoring_status()
+            emit('monitoring_status', status, broadcast=True)
+        else:
+            logger.error("CV pipeline not available - cannot resume monitoring")
+            # Emit error to requesting client only
+            socketio.emit('error', {
+                'message': 'Monitoring controls unavailable - camera service not started. '
+                          'Please wait for camera initialization or check system status.'
+            }, room=client_sid)
+    except Exception as e:
+        logger.exception(f"Error resuming monitoring: {e}")
+        socketio.emit('error', {
+            'message': 'Failed to resume monitoring. Try refreshing the page or check logs '
+                      'for details: sudo journalctl -u deskpulse'
+        }, room=client_sid)
 
 
 @socketio.on_error_default
