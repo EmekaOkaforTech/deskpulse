@@ -1,5 +1,5 @@
 import atexit
-from flask import Flask
+from flask import Flask, current_app
 from app.extensions import socketio, init_db
 from app.core import configure_logging
 
@@ -53,7 +53,9 @@ def create_app(config_name="development"):
 
             # Only create pipeline if none exists or previous one stopped
             if cv_pipeline is None or not cv_pipeline.running:
-                cv_pipeline = CVPipeline()
+                # Pass actual Flask app object (not proxy) for background thread context
+                # Story 3.6: Fix alert notifications - CV thread needs app context
+                cv_pipeline = CVPipeline(app=current_app._get_current_object())
                 if not cv_pipeline.start():
                     app.logger.error(
                         "Failed to start CV pipeline - dashboard will show no "

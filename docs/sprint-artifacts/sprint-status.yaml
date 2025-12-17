@@ -48,7 +48,7 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Real-Time Posture Monitoring
-  epic-2: in-progress
+  epic-2: done
   2-1-camera-capture-module-with-opencv: done
   2-2-mediapipe-pose-landmark-detection: done
   2-3-binary-posture-classification: done
@@ -59,13 +59,13 @@ development_status:
   epic-2-retrospective: optional
 
   # Epic 3: Alert & Notification System
-  epic-3: in-progress
+  epic-3: done
   3-1-alert-threshold-tracking-and-state-management: done
   3-2-desktop-notifications-with-libnotify: done
   3-3-browser-notifications-for-remote-dashboard-users: done
   3-4-pause-and-resume-monitoring-controls: done
   3-5-posture-correction-confirmation-feedback: done
-  3-6-alert-response-loop-integration-testing: backlog
+  3-6-alert-response-loop-integration-testing: done
   epic-3-retrospective: optional
 
   # Epic 4: Progress Tracking & Analytics
