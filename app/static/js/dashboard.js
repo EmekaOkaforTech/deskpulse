@@ -66,6 +66,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // CV update handler - CORE REAL-TIME FUNCTIONALITY
     socket.on('posture_update', function(data) {
         if (DEBUG) console.log('Posture update received:', data.posture_state);
+
+        // Story 3.6: Log alert tracking for debugging (only when duration > 0)
+        if (data.alert && data.alert.duration > 0 && DEBUG) {
+            console.log('[TRACKING] Bad posture duration:', {
+                duration: data.alert.duration,
+                threshold_reached: data.alert.threshold_reached,
+                should_alert: data.alert.should_alert
+            });
+        }
+
         updatePostureStatus(data);
         updateCameraFeed(data.frame_base64);
         updateTimestamp();
@@ -86,7 +96,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Alert triggered handler - Story 3.3 Task 2
     socket.on('alert_triggered', function(data) {
-        if (DEBUG) console.log('Alert triggered:', data);
+        // Story 3.6: Always log alert events for debugging (enterprise audit trail)
+        console.log('[ALERT] Alert triggered event received:', {
+            message: data.message,
+            duration: data.duration,
+            timestamp: data.timestamp
+        });
 
         // Send browser notification if permission granted
         sendBrowserNotification(data);
@@ -247,8 +262,31 @@ function updatePostureStatus(data) {
     } else if (data.posture_state === 'bad') {
         statusDot.className = 'status-indicator status-bad';  // Amber
         statusText.textContent = '⚠ Bad Posture';
-        postureMessage.textContent =
-            'Sit up straight and align your shoulders';
+
+        // Story 3.6: Display duration tracking and threshold progress
+        // Backend sends data.alert = {duration: int, threshold_reached: bool, should_alert: bool}
+        if (data.alert && data.alert.duration > 0) {
+            const minutes = Math.floor(data.alert.duration / 60);
+            const seconds = data.alert.duration % 60;
+            const threshold_minutes = 10; // Default threshold from config
+
+            // Format duration nicely: "3m 25s" or "12m 5s"
+            const durationStr = `${minutes}m ${seconds}s`;
+
+            if (data.alert.threshold_reached) {
+                // Past threshold - use urgent messaging
+                postureMessage.textContent =
+                    `⚠ Bad posture for ${durationStr}! Please correct your posture now.`;
+            } else {
+                // Under threshold - show progress
+                postureMessage.textContent =
+                    `Bad posture: ${durationStr} / ${threshold_minutes}m - Sit up straight and align your shoulders`;
+            }
+        } else {
+            // No duration tracking yet (just started bad posture)
+            postureMessage.textContent =
+                'Sit up straight and align your shoulders';
+        }
     }
 
     // Display confidence if in debug mode

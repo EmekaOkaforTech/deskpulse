@@ -58,7 +58,7 @@ class CVPipeline:
         fps_target: Target frames per second (from config, default 10)
     """
 
-    def __init__(self, fps_target: int = 10):
+    def __init__(self, fps_target: int = 10, app=None):
         """
         Initialize CVPipeline with CV components.
 
@@ -66,12 +66,15 @@ class CVPipeline:
             fps_target: Target frames per second for processing (default 10)
                        Should match CAMERA_FPS_TARGET config for optimal
                        performance
+            app: Flask application instance for background thread context
+                (Story 3.6: Required for alert notifications in CV thread)
 
         Raises:
             ValueError: If fps_target is zero or negative
         """
         from flask import current_app
 
+        self.app = app  # Store Flask app for background thread app context
         self.camera = None  # Initialized in start()
         self.detector = None
         self.classifier = None
@@ -378,23 +381,35 @@ class CVPipeline:
                 # Story 3.2: Alert Notification Delivery
                 # ==================================================
                 if alert_result['should_alert']:
+                    logger.warning(f"🚨 ALERT TRIGGERED! Duration: {alert_result['duration']}s")
                     try:
-                        # Desktop notification (libnotify)
-                        self.send_alert_notification(alert_result['duration'])
+                        # CRITICAL: Wrap in app context for background thread
+                        # Flask's current_app is thread-local and unavailable in CV thread
+                        # Without context, current_app.config.get() raises RuntimeError
+                        # Story 3.6: Fix alert notifications in background thread
+                        logger.info("Entering app context for notifications...")
+                        with self.app.app_context():
+                            logger.info("App context active, sending notifications...")
 
-                        # Browser notification (SocketIO - Story 3.3 preparation)
-                        # NOTE: socketio import at module level is safe - already
-                        # initialized in extensions.py before CV pipeline starts
-                        from app.extensions import socketio
-                        socketio.emit('alert_triggered', {
-                            'message': f"Bad posture detected for {alert_result['duration'] // 60} minutes",
-                            'duration': alert_result['duration'],
-                            'timestamp': datetime.now().isoformat()
-                        }, broadcast=True)
+                            # Desktop notification (libnotify)
+                            self.send_alert_notification(alert_result['duration'])
+                            logger.info("Desktop notification sent")
+
+                            # Browser notification (SocketIO - Story 3.3 preparation)
+                            # NOTE: socketio import at module level is safe - already
+                            # initialized in extensions.py before CV pipeline starts
+                            from app.extensions import socketio
+                            logger.info(f"Emitting alert_triggered event via SocketIO...")
+                            socketio.emit('alert_triggered', {
+                                'message': f"Bad posture detected for {alert_result['duration'] // 60} minutes",
+                                'duration': alert_result['duration'],
+                                'timestamp': datetime.now().isoformat()
+                            })
+                            logger.info("✅ alert_triggered event emitted successfully")
 
                     except Exception as e:
                         # Notification failures never crash CV pipeline
-                        logger.exception(f"Notification delivery failed: {e}")
+                        logger.exception(f"❌ Notification delivery failed: {e}")
                 # ==================================================
 
                 # ==================================================
@@ -402,20 +417,22 @@ class CVPipeline:
                 # ==================================================
                 if alert_result.get('posture_corrected'):
                     try:
-                        # Desktop notification (send_confirmation imported at module level)
-                        self.send_confirmation(alert_result['previous_duration'])
+                        # Story 3.6: Wrap in app context for background thread
+                        with self.app.app_context():
+                            # Desktop notification (send_confirmation imported at module level)
+                            self.send_confirmation(alert_result['previous_duration'])
 
-                        # Browser notification (SocketIO)
-                        from app.extensions import socketio
-                        socketio.emit('posture_corrected', {
-                            'message': '✓ Good posture restored! Nice work!',
-                            'previous_duration': alert_result['previous_duration'],
-                            'timestamp': datetime.now().isoformat()
-                        }, broadcast=True)
+                            # Browser notification (SocketIO)
+                            from app.extensions import socketio
+                            socketio.emit('posture_corrected', {
+                                'message': '✓ Good posture restored! Nice work!',
+                                'previous_duration': alert_result['previous_duration'],
+                                'timestamp': datetime.now().isoformat()
+                            }, broadcast=True)
 
-                        logger.info(
-                            f"Posture correction confirmed: {alert_result['previous_duration']}s"
-                        )
+                            logger.info(
+                                f"Posture correction confirmed: {alert_result['previous_duration']}s"
+                            )
 
                     except Exception as e:
                         # Confirmation failures never crash CV pipeline
