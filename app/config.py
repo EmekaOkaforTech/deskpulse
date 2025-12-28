@@ -227,6 +227,9 @@ class Config:
     DASHBOARD_PORT = get_ini_int("dashboard", "port", 5000)
     DASHBOARD_UPDATE_INTERVAL = get_ini_int("dashboard", "update_interval_seconds", 2)
 
+    # Daily scheduler settings (Story 4.6)
+    DAILY_SUMMARY_TIME = get_ini_value("scheduler", "daily_summary_time", "18:00")
+
     # CORS allowed origins - configurable via INI or defaults to localhost
     # Can be comma-separated list in INI: cors_origins = http://localhost:5000,http://pi.local:5000
     _cors_origins_str = get_ini_value("dashboard", "cors_origins", "")

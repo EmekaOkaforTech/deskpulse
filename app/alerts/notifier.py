@@ -142,3 +142,89 @@ def send_confirmation(previous_bad_duration):
     )
 
     return desktop_success
+
+
+def send_daily_summary(target_date=None):
+    """Send end-of-day summary notification.
+
+    Generates daily summary and delivers via:
+    1. Desktop notification (libnotify - Story 3.2)
+    2. SocketIO broadcast event (dashboard display)
+
+    Args:
+        target_date: Date for summary (defaults to today)
+
+    Returns:
+        dict: {
+            'summary': str,              # Full summary text
+            'desktop_sent': bool,        # Desktop notification success
+            'socketio_sent': bool,       # SocketIO broadcast success
+            'timestamp': str             # ISO 8601 timestamp
+        }
+
+    CRITICAL: Requires Flask app context (PostureAnalytics dependency).
+    - Scheduler: Calls within app.app_context()
+    - Manual trigger: Already has context via Flask request
+
+    Story 4.6: End-of-Day Summary Report
+    """
+    from app.data.analytics import PostureAnalytics
+    from app.extensions import socketio
+    from datetime import datetime, date
+
+    # Default to today if no date specified
+    if target_date is None:
+        target_date = date.today()
+
+    # Generate summary with error handling (prevent crashes)
+    try:
+        summary = PostureAnalytics.generate_daily_summary(target_date)
+    except TypeError as e:
+        logger.error(f"Invalid date type for summary generation: {e}")
+        return {
+            'summary': 'Error generating summary',
+            'desktop_sent': False,
+            'socketio_sent': False,
+            'timestamp': datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.exception(f"Failed to generate daily summary: {e}")
+        return {
+            'summary': 'Error generating summary',
+            'desktop_sent': False,
+            'socketio_sent': False,
+            'timestamp': datetime.now().isoformat()
+        }
+
+    # Send desktop notification (reuse Story 3.2 infrastructure)
+    # Convert multi-line summary to single line for notification
+    notification_text = summary.replace('\n', ' | ')
+    desktop_success = send_desktop_notification(
+        "DeskPulse Daily Summary",
+        notification_text[:256]  # Truncate to 256 chars for notification limit
+    )
+
+    # Emit via SocketIO for dashboard (real-time event)
+    socketio_success = False
+    try:
+        socketio.emit('daily_summary', {
+            'summary': summary,
+            'date': target_date.isoformat(),
+            'timestamp': datetime.now().isoformat()
+        }, broadcast=True)
+        socketio_success = True
+        logger.info("SocketIO daily_summary event emitted")
+    except Exception as e:
+        logger.exception(f"Failed to emit SocketIO daily_summary: {e}")
+
+    logger.info(
+        f"Daily summary sent for {target_date}: "
+        f"desktop={desktop_success}, socketio={socketio_success}"
+    )
+
+    return {
+        'summary': summary,
+        'desktop_sent': desktop_success,
+        'socketio_sent': socketio_success,
+        'timestamp': datetime.now().isoformat()
+    }
