@@ -89,6 +89,19 @@ def runner(app):
 
 
 @pytest.fixture
+def mock_camera():
+    """Mock camera that returns fake frames for testing.
+
+    Returns numpy arrays (480x640x3 uint8) as fake camera frames.
+    Prevents hardware dependency in CV pipeline tests.
+    """
+    import numpy as np
+    camera = Mock()
+    camera.read.return_value = (True, np.zeros((480, 640, 3), dtype=np.uint8))
+    return camera
+
+
+@pytest.fixture
 def socketio_client(app):
     """Create SocketIO test client with proper setup.
 

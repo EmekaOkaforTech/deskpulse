@@ -1,5 +1,6 @@
 flask==3.0.0
 flask-socketio==5.3.5
+flask-talisman==1.1.0  # Enterprise security: CSP headers, HSTS, security hardening
 python-socketio==5.10.0
 opencv-python>=4.8.0,<4.10.0  # Compatible with numpy<2
 mediapipe>=0.10.18,<0.11.0  # Story 2.2 - Pose landmark detection

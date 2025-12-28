@@ -5,8 +5,14 @@
  * Story 2.6: SocketIO real-time updates ACTIVATED
  */
 
-// Debug mode toggle - set to false for production to reduce console noise
-const DEBUG = false;
+// Debug mode - controlled by URL parameter or localStorage
+// Usage: Add ?debug=true to URL or run localStorage.setItem('debug', 'true') in console
+const DEBUG = new URLSearchParams(window.location.search).get('debug') === 'true' ||
+              localStorage.getItem('debug') === 'true';
+
+if (DEBUG) {
+    console.log('Debug mode enabled - verbose stats logging active');
+}
 
 // Initialize SocketIO connection on page load
 let socket;
@@ -116,8 +122,52 @@ document.addEventListener('DOMContentLoaded', function() {
         updateMonitoringUI(data);
     });
 
+    // Posture correction confirmation handler - Story 3.5
+    // Displays positive feedback when user corrects posture after alert
+    socket.on('posture_corrected', (data) => {
+        if (DEBUG) console.log('Posture correction confirmed:', data);
+
+        try {
+            // Clear alert banner (stale after correction)
+            clearDashboardAlert();
+
+            // Update posture message with positive feedback
+            const postureMessage = document.getElementById('posture-message');
+            if (postureMessage) {
+                postureMessage.textContent = data.message;  // "✓ Good posture restored! Nice work!"
+                postureMessage.style.color = '#10b981';     // Green (positive reinforcement)
+
+                // Auto-reset to normal after 5 seconds
+                setTimeout(() => {
+                    postureMessage.style.color = '';  // Reset to default
+                }, 5000);
+            }
+
+            // Browser notification (if permission granted)
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('DeskPulse', {
+                    body: data.message,
+                    icon: '/static/img/logo.png',
+                    tag: 'posture-corrected',          // Replace previous notification
+                    requireInteraction: false          // Auto-dismiss (not persistent)
+                });
+            }
+
+            console.log('Posture correction feedback displayed');
+
+        } catch (error) {
+            console.error('Error handling posture_corrected event:', error);
+        }
+    });
+
     // Set initial timestamp
     updateTimestamp();
+
+    // Initialize today's stats display (Story 4.3)
+    loadTodayStats();
+
+    // Initialize 7-day history table (Story 4.4)
+    load7DayHistory();
 });
 
 
@@ -356,18 +406,451 @@ function updateTimestamp() {
 
 
 /**
- * Update today's statistics (Epic 4 will implement).
+ * Load and display today's posture statistics - Story 4.3 AC1.
+ * Fetches from /api/stats/today and updates dashboard display.
  *
- * @param {Object} stats - Today's posture statistics
+ * Called on page load and every 30 seconds for real-time updates.
  */
-function updateTodayStats(stats) {
-    // Epic 4: Real implementation
-    console.log('Stats update received:', stats);
+async function loadTodayStats() {
+    try {
+        const response = await fetch('/api/stats/today');
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const stats = await response.json();
+        updateTodayStatsDisplay(stats);
+
+    } catch (error) {
+        console.error('Failed to load today stats:', error);
+        handleStatsLoadError(error);
+    }
+}
+
+/**
+ * Update dashboard display with today's statistics - Story 4.3 AC1.
+ *
+ * @param {Object} stats - Statistics object from API
+ * @param {string} stats.date - ISO 8601 date string ("2025-12-19")
+ * @param {number} stats.good_duration_seconds - Time in good posture
+ * @param {number} stats.bad_duration_seconds - Time in bad posture
+ * @param {number} stats.user_present_duration_seconds - Total active time
+ * @param {number} stats.posture_score - 0-100 percentage
+ * @param {number} stats.total_events - Event count
+ * @returns {void}
+ */
+function updateTodayStatsDisplay(stats) {
+    // Update good posture time
+    const goodTime = formatDuration(stats.good_duration_seconds);
+    const goodTimeElement = document.getElementById('good-time');
+    if (goodTimeElement) {
+        goodTimeElement.textContent = goodTime;
+    }
+
+    // Update bad posture time
+    const badTime = formatDuration(stats.bad_duration_seconds);
+    const badTimeElement = document.getElementById('bad-time');
+    if (badTimeElement) {
+        badTimeElement.textContent = badTime;
+    }
+
+    // Update posture score with color-coding (UX Design: Progress framing)
+    const score = Math.round(stats.posture_score);
+    const scoreElement = document.getElementById('posture-score');
+
+    if (scoreElement) {
+        scoreElement.textContent = score + '%';
+
+        // Color-code score (green ≥70%, amber 40-69%, gray <40%)
+        // UX Design: Quietly capable - visual feedback without alarm
+        if (score >= 70) {
+            scoreElement.style.color = '#10b981';  // Green (good performance)
+        } else if (score >= 40) {
+            scoreElement.style.color = '#f59e0b';  // Amber (needs improvement)
+        } else {
+            scoreElement.style.color = '#6b7280';  // Gray (low score)
+        }
+    }
+
+    if (DEBUG) {
+        console.log(
+            `Today's stats updated: ${score}% ` +
+            `(${goodTime} good, ${badTime} bad, ${stats.total_events} events)`
+        );
+    }
+}
+
+/**
+ * Format duration in seconds to human-readable string - Story 4.3 AC1.
+ *
+ * Matches server-side format_duration() pattern (analytics.py:217-248).
+ *
+ * @param {number} seconds - Duration in seconds
+ * @returns {string} Formatted duration ("2h 15m", "45m", or "0m")
+ * @example
+ * formatDuration(7890) // "2h 11m"
+ * formatDuration(300)  // "5m"
+ * formatDuration(0)    // "0m"
+ */
+function formatDuration(seconds) {
+    // Handle zero and negative durations (edge case)
+    if (seconds <= 0) {
+        return '0m';
+    }
+
+    // Calculate hours and minutes
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    // Format based on duration
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    } else {
+        return `${minutes}m`;
+    }
+}
+
+/**
+ * Handle stats load error - Story 4.3 AC1.
+ * Displays error state in stats display without disrupting dashboard.
+ *
+ * @param {Error} error - Error object from fetch failure
+ * @returns {void}
+ */
+function handleStatsLoadError(error) {
+    // Update display with error placeholders
+    const goodTimeElement = document.getElementById('good-time');
+    const badTimeElement = document.getElementById('bad-time');
+    const scoreElement = document.getElementById('posture-score');
+
+    if (goodTimeElement) goodTimeElement.textContent = '--';
+    if (badTimeElement) badTimeElement.textContent = '--';
+
+    if (scoreElement) {
+        scoreElement.textContent = '--%';
+        scoreElement.style.color = '#6b7280';  // Gray
+    }
+
+    // Show user-friendly error message in footer
+    const article = document.querySelector('article');
+    const footer = article?.querySelector('footer small');
+    if (footer) {
+        footer.textContent = 'Unable to load stats - retrying in 30 seconds';
+        footer.style.color = '#ef4444';  // Red error color
+    }
+
+    // Log for debugging
+    console.error('Stats unavailable:', error.message);
+}
+
+
+/**
+ * Load and display 7-day posture history - Story 4.4 AC2.
+ * Fetches from /api/stats/history and renders table with trend indicators.
+ * Includes retry logic for transient network errors.
+ *
+ * @param {number} retries - Number of retry attempts (default: 3)
+ * @returns {Promise<void>}
+ */
+async function load7DayHistory(retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch('/api/stats/history');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // API returns: {"history": [{date, good_duration_seconds, bad_duration_seconds, posture_score, ...}, ...]}
+            // history array is ordered oldest to newest (6 days ago → today)
+            display7DayHistory(data.history);
+            return; // Success - exit retry loop
+
+        } catch (error) {
+            if (attempt === retries) {
+                // Final attempt failed - show error state
+                console.error('Failed to load 7-day history after', retries, 'attempts:', error);
+                handleHistoryLoadError(error);
+            } else {
+                // Retry with exponential backoff (1s, 2s, 3s)
+                if (DEBUG) {
+                    console.log(`Retry attempt ${attempt}/${retries} for history load...`);
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+    }
+}
+
+/**
+ * Display 7-day history table with trend indicators - Story 4.4 AC2.
+ *
+ * @param {Array} history - Array of daily stats objects from API
+ *                          Format: [{date, good_duration_seconds, bad_duration_seconds, posture_score, total_events}, ...]
+ * @returns {void}
+ */
+function display7DayHistory(history) {
+    const container = document.getElementById('history-table-container');
+
+    if (!container) {
+        console.error('History container element not found in DOM');
+        return;
+    }
+
+    // Edge case: No historical data yet (new installation, first day)
+    if (!history || history.length === 0) {
+        container.innerHTML = `
+            <p style="text-align: center; padding: 2rem; color: #6b7280;">
+                No historical data yet. Start monitoring to build your history!
+            </p>
+        `;
+        return;
+    }
+
+    // Build table HTML with Pico CSS semantic grid
+    let tableHTML = `
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Good Time</th>
+                    <th scope="col">Bad Time</th>
+                    <th scope="col">Score</th>
+                    <th scope="col">Trend</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    // Iterate through history (oldest to newest) to build table rows
+    history.forEach((day, index) => {
+        const dateStr = formatHistoryDate(day.date);
+        const goodTime = formatDuration(day.good_duration_seconds);
+        const badTime = formatDuration(day.bad_duration_seconds);
+        const score = Math.round(day.posture_score);
+
+        // Calculate trend indicator (compare to previous day)
+        let trendIcon = '—';
+        let trendColor = '#6b7280';
+        let trendTitle = 'First day in range';
+
+        if (index > 0) {
+            const prevScore = Math.round(history[index - 1].posture_score);
+            const scoreDiff = score - prevScore;
+
+            if (scoreDiff > 5) {
+                trendIcon = '↑';
+                trendColor = '#10b981';  // Green (improving)
+                trendTitle = `Up ${scoreDiff} points from previous day`;
+            } else if (scoreDiff < -5) {
+                trendIcon = '↓';
+                trendColor = '#f59e0b';  // Amber (declining)
+                trendTitle = `Down ${Math.abs(scoreDiff)} points from previous day`;
+            } else {
+                trendIcon = '→';
+                trendColor = '#6b7280';  // Gray (stable)
+                trendTitle = `Stable (${scoreDiff >= 0 ? '+' : ''}${scoreDiff} points)`;
+            }
+        }
+
+        // Color-code score (green ≥70%, amber 40-69%, gray <40%)
+        let scoreColor = '#6b7280';
+        if (score >= 70) {
+            scoreColor = '#10b981';
+        } else if (score >= 40) {
+            scoreColor = '#f59e0b';
+        }
+
+        tableHTML += `
+            <tr>
+                <td>${dateStr}</td>
+                <td>${goodTime}</td>
+                <td>${badTime}</td>
+                <td style="color: ${scoreColor}; font-weight: bold;">${score}%</td>
+                <td style="color: ${trendColor}; font-size: 1.5rem;" title="${trendTitle}">
+                    ${trendIcon}
+                </td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+            </tbody>
+        </table>
+    `;
+
+    // Render table
+    container.innerHTML = tableHTML;
+
+    // Show celebration message if today is best day (UX Design: Celebration messaging)
+    checkAndShowCelebration(history);
+
+    if (DEBUG) {
+        console.log(`7-day history table rendered: ${history.length} days displayed`);
+    }
+}
+
+/**
+ * Format date for history table display - Story 4.4 AC2.
+ *
+ * Converts ISO 8601 date string to user-friendly format:
+ * - "Today" for current date
+ * - "Yesterday" for previous date
+ * - "Mon 12/4" for older dates (weekday + month/day)
+ *
+ * @param {string} dateStr - ISO 8601 date string from API ("2025-12-19")
+ * @returns {string} Formatted date string
+ * @example
+ * formatHistoryDate("2025-12-19") // "Today" (if today)
+ * formatHistoryDate("2025-12-18") // "Yesterday" (if yesterday)
+ * formatHistoryDate("2025-12-13") // "Mon 12/13" (older date)
+ */
+function formatHistoryDate(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');  // Parse as midnight local time
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);  // Reset to midnight for accurate comparison
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Format as "Today", "Yesterday", or "Mon 12/4"
+    if (date.getTime() === today.getTime()) {
+        return 'Today';
+    } else if (date.getTime() === yesterday.getTime()) {
+        return 'Yesterday';
+    } else {
+        const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthDay = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+        return `${weekday} ${monthDay}`;
+    }
+}
+
+/**
+ * Check if today is best day and show celebration message - Story 4.4 AC2.
+ *
+ * UX Design: Celebration messaging provides positive reinforcement.
+ * Only celebrates if score ≥50% (don't celebrate poor performance).
+ *
+ * @param {Array} history - 7-day history array (oldest to newest)
+ * @returns {void}
+ */
+function checkAndShowCelebration(history) {
+    if (!history || history.length === 0) return;
+
+    // Find today's data (last element in history array)
+    const today = history[history.length - 1];
+
+    // Find best day in 7-day history
+    const bestDay = history.reduce((max, day) =>
+        day.posture_score > max.posture_score ? day : max
+    );
+
+    // Celebrate if today is best day AND score is decent (≥50%)
+    if (today.date === bestDay.date && today.posture_score >= 50) {
+        const message = '🎉 Best posture day this week!';
+        showCelebrationMessage(message);
+
+        if (DEBUG) {
+            console.log(`Celebration: ${message} (score: ${Math.round(today.posture_score)}%)`);
+        }
+    }
+}
+
+/**
+ * Show temporary celebration message in posture message area - Story 4.4 AC2.
+ *
+ * Temporarily replaces posture message with celebration, then restores original.
+ * Duration: 5 seconds (long enough to notice, short enough not to annoy).
+ *
+ * @param {string} message - Celebration message to display
+ * @returns {void}
+ */
+function showCelebrationMessage(message) {
+    const postureMessage = document.getElementById('posture-message');
+
+    if (!postureMessage) return;  // Defensive: element may not exist
+
+    const originalText = postureMessage.textContent;
+    const originalColor = postureMessage.style.color;
+    const originalWeight = postureMessage.style.fontWeight;
+
+    // Show celebration
+    postureMessage.textContent = message;
+    postureMessage.style.color = '#10b981';  // Green
+    postureMessage.style.fontWeight = 'bold';
+
+    // Restore original after 5 seconds
+    setTimeout(() => {
+        postureMessage.textContent = originalText;
+        postureMessage.style.color = originalColor;
+        postureMessage.style.fontWeight = originalWeight;
+    }, 5000);  // 5 seconds
+}
+
+/**
+ * Handle history load error - Story 4.4 AC2.
+ * Displays error state in history container without disrupting dashboard.
+ *
+ * @param {Error} error - Error object from fetch failure
+ * @returns {void}
+ */
+function handleHistoryLoadError(error) {
+    const container = document.getElementById('history-table-container');
+
+    if (!container) return;  // Defensive programming
+
+    container.innerHTML = `
+        <p style="text-align: center; padding: 2rem; color: #ef4444;">
+            Unable to load history. Please refresh the page to try again.
+        </p>
+    `;
+
+    // Log for debugging
+    console.error('History unavailable:', error.message);
 }
 
 
 // Update timestamp every second
 setInterval(updateTimestamp, 1000);
+
+// Poll for stats updates every 30 seconds - Story 4.3 AC2
+// Balances data freshness vs server load
+const statsPollingInterval = setInterval(loadTodayStats, 30000);  // 30 seconds = 30000ms
+
+// Refresh history every 30 seconds to stay in sync with today's stats - Story 4.4 AC2
+const historyPollingInterval = setInterval(load7DayHistory, 30000);
+
+// Enterprise-grade polling cleanup using Page Visibility API
+// Reference: https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event
+// Chrome is phasing out beforeunload/unload events (unreliable on mobile)
+// visibilitychange + pagehide provide reliable cleanup across all browsers
+// Reference: https://www.rumvision.com/blog/time-to-unload-your-unload-events/
+
+// Page Visibility API: Pause/resume polling based on tab visibility
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        // Tab hidden: User switched away, minimize polling
+        if (DEBUG) console.log('Tab hidden - stats polling paused (Page Visibility API)');
+        // Note: We keep interval running but could optimize by pausing here
+    } else {
+        // Tab visible again: Resume polling, fetch fresh data immediately
+        if (DEBUG) console.log('Tab visible - fetching fresh stats and history (Page Visibility API)');
+        loadTodayStats();  // Immediate refresh when user returns
+        load7DayHistory();  // Story 4.4: Refresh history too
+    }
+});
+
+// pagehide event: Last reliable cleanup opportunity (fires before unload)
+// Handles navigation, tab close, browser close on all platforms including mobile
+// Reference: https://developer.mozilla.org/en-US/docs/Web/API/Window/pagehide_event
+window.addEventListener('pagehide', () => {
+    clearInterval(statsPollingInterval);
+    clearInterval(historyPollingInterval);
+    if (DEBUG) console.log('Polling timers cleaned up (pagehide)');
+});
 
 
 /**
@@ -789,59 +1272,6 @@ function clearDashboardAlert() {
         console.log('Dashboard alert banner cleared');
     }
 }
-
-
-// ==================================================
-// Story 3.5: Posture Correction Confirmation Feedback
-// ==================================================
-/**
- * Handle posture_corrected event from server.
- *
- * Displays positive confirmation when user corrects posture after alert.
- * UX Design: Green color, checkmark, celebration message, brief display.
- *
- * Story 3.5: Posture Correction Confirmation Feedback
- *
- * @param {Object} data - Correction event data
- * @param {string} data.message - Confirmation message
- * @param {number} data.previous_duration - Bad posture duration (seconds)
- * @param {string} data.timestamp - Event timestamp (ISO format)
- */
-socket.on('posture_corrected', (data) => {
-    if (DEBUG) console.log('Posture correction confirmed:', data);
-
-    try {
-        // Clear alert banner (stale after correction)
-        clearDashboardAlert();
-
-        // Update posture message with positive feedback
-        const postureMessage = document.getElementById('posture-message');
-        if (postureMessage) {
-            postureMessage.textContent = data.message;  // "✓ Good posture restored! Nice work!"
-            postureMessage.style.color = '#10b981';     // Green (positive reinforcement)
-
-            // Auto-reset to normal after 5 seconds
-            setTimeout(() => {
-                postureMessage.style.color = '';  // Reset to default
-            }, 5000);
-        }
-
-        // Browser notification (if permission granted)
-        if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('DeskPulse', {
-                body: data.message,
-                icon: '/static/img/logo.png',
-                tag: 'posture-corrected',          // Replace previous notification
-                requireInteraction: false          // Auto-dismiss (not persistent)
-            });
-        }
-
-        logger.info('Posture correction feedback displayed');
-
-    } catch (error) {
-        console.error('Error handling posture_corrected event:', error);
-    }
-});
 
 
 /**
