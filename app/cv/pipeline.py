@@ -79,6 +79,7 @@ class CVPipeline:
         self.detector = None
         self.classifier = None
         self.alert_manager = None  # Story 3.1 - Initialized in start()
+        self.last_posture_state = None  # Story 4.1 - Track state changes for database persistence
         self.running = False
         self.thread = None
 
@@ -257,6 +258,9 @@ class CVPipeline:
         Architecture: Camera Failure Handling Strategy
                       (architecture.md:789-865)
         """
+        # Story 4.1: Import here to avoid circular import (repository -> database -> app -> pipeline)
+        from app.data.repository import PostureEventRepository
+
         logger.info("CV processing loop started")
 
         # Layer 1 recovery constants
@@ -356,6 +360,33 @@ class CVPipeline:
                 posture_state = self.classifier.classify_posture(
                     detection_result['landmarks']
                 )
+
+                # ==================================================
+                # Story 4.1: Posture Event Database Persistence
+                # ==================================================
+                # Only persist state transitions (prevents duplicate events at 10 FPS)
+                if posture_state != self.last_posture_state and posture_state is not None:
+                    try:
+                        event_id = PostureEventRepository.insert_posture_event(
+                            posture_state=posture_state,
+                            user_present=detection_result['user_present'],
+                            confidence_score=detection_result['confidence'],
+                            metadata={}  # Extensible for future features (FR20: pain_level)
+                        )
+
+                        logger.info(
+                            f"Posture state changed: {self.last_posture_state} → {posture_state} "
+                            f"(event_id={event_id})"
+                        )
+
+                    except Exception as e:
+                        # CRITICAL: Never crash CV pipeline due to database errors (NFR-R1: 99% uptime)
+                        logger.error(f"Failed to persist posture event: {e}", exc_info=True)
+                        # Continue processing - graceful degradation
+
+                    # Update state AFTER try/except to prevent duplicate events on DB recovery
+                    self.last_posture_state = posture_state
+                # ==================================================
 
                 # ==================================================
                 # Story 3.1: Alert Threshold Tracking
