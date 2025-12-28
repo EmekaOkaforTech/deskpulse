@@ -367,17 +367,21 @@ class CVPipeline:
                 # Only persist state transitions (prevents duplicate events at 10 FPS)
                 if posture_state != self.last_posture_state and posture_state is not None:
                     try:
-                        event_id = PostureEventRepository.insert_posture_event(
-                            posture_state=posture_state,
-                            user_present=detection_result['user_present'],
-                            confidence_score=detection_result['confidence'],
-                            metadata={}  # Extensible for future features (FR20: pain_level)
-                        )
+                        # CRITICAL: Wrap in app context for background thread (same pattern as alerts/notifications)
+                        # Flask's current_app is thread-local and unavailable in CV thread
+                        # Without context, get_db() raises RuntimeError
+                        with self.app.app_context():
+                            event_id = PostureEventRepository.insert_posture_event(
+                                posture_state=posture_state,
+                                user_present=detection_result['user_present'],
+                                confidence_score=detection_result['confidence'],
+                                metadata={}  # Extensible for future features (FR20: pain_level)
+                            )
 
-                        logger.info(
-                            f"Posture state changed: {self.last_posture_state} → {posture_state} "
-                            f"(event_id={event_id})"
-                        )
+                            logger.info(
+                                f"Posture state changed: {self.last_posture_state} → {posture_state} "
+                                f"(event_id={event_id})"
+                            )
 
                     except Exception as e:
                         # CRITICAL: Never crash CV pipeline due to database errors (NFR-R1: 99% uptime)

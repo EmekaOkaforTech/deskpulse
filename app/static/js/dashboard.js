@@ -168,6 +168,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize 7-day history table (Story 4.4)
     load7DayHistory();
+
+    // Load and display trend message (Story 4.5)
+    loadTrendData();
 });
 
 
@@ -291,6 +294,7 @@ function updatePostureStatus(data) {
         statusText.textContent = 'No User Detected';
         postureMessage.textContent =
             'Step into camera view to begin posture monitoring';
+        postureMessage.style.color = '';  // Reset to default (neutral)
         return;
     }
 
@@ -300,6 +304,7 @@ function updatePostureStatus(data) {
         statusText.textContent = 'Detecting Posture...';
         postureMessage.textContent =
             'Sit at your desk for posture classification to begin';
+        postureMessage.style.color = '';  // Reset to default (neutral)
         return;
     }
 
@@ -309,9 +314,11 @@ function updatePostureStatus(data) {
         statusText.textContent = '✓ Good Posture';
         postureMessage.textContent =
             'Great! Keep up the good posture.';
+        postureMessage.style.color = '#10b981';  // Green (positive feedback)
     } else if (data.posture_state === 'bad') {
         statusDot.className = 'status-indicator status-bad';  // Amber
         statusText.textContent = '⚠ Bad Posture';
+        postureMessage.style.color = '#ef4444';  // Red (negative feedback)
 
         // Story 3.6: Display duration tracking and threshold progress
         // Backend sends data.alert = {duration: int, threshold_reached: bool, should_alert: bool}
@@ -812,6 +819,128 @@ function handleHistoryLoadError(error) {
     console.error('History unavailable:', error.message);
 }
 
+/**
+ * Load trend data from backend API - Story 4.5 AC3.
+ * Fetches from /api/stats/trend and displays progress message.
+ * Includes retry logic for transient network errors.
+ *
+ * @param {number} retries - Number of retry attempts (default: 3)
+ * @returns {Promise<void>}
+ */
+async function loadTrendData(retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch('/api/stats/trend');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const trend = await response.json();
+
+            // API returns: {trend, average_score, score_change, best_day, improvement_message}
+            displayTrendMessage(trend);
+            return; // Success - exit retry loop
+
+        } catch (error) {
+            if (attempt === retries) {
+                // Final attempt failed - show error state
+                console.error('Failed to load trend after', retries, 'attempts:', error);
+                handleTrendLoadError(error);
+            } else {
+                // Retry with linear backoff (1s, 2s, 3s) - Code Review Fix #7
+                if (DEBUG) {
+                    console.log(`Retry attempt ${attempt}/${retries} for trend load...`);
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+    }
+}
+
+/**
+ * Display trend message in 7-day history section - Story 4.5 AC4.
+ * Adds progress message below "7-Day History" header with color-coded indicator.
+ *
+ * UX Design: Progress framing principle - emphasize wins, reframe challenges.
+ *
+ * @param {Object} trend - Trend data from API
+ * @param {string} trend.trend - 'improving', 'stable', 'declining', 'insufficient_data'
+ * @param {number} trend.average_score - 7-day average score (0-100)
+ * @param {number} trend.score_change - Points change first → last day
+ * @param {string} trend.improvement_message - User-facing message
+ * @returns {void}
+ */
+function displayTrendMessage(trend) {
+    // Find 7-day history section header
+    const historyHeader = document.querySelector('article header h3');
+
+    if (!historyHeader || historyHeader.textContent !== '7-Day History') {
+        // Header not found or not the right section - defensive programming
+        if (DEBUG) {
+            console.warn('7-Day History header not found for trend message placement');
+        }
+        return;
+    }
+
+    // Remove existing trend message if present (prevents duplicates on refresh)
+    const existingMessage = historyHeader.parentElement.querySelector('.trend-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+
+    // Create trend message element
+    const trendMessage = document.createElement('p');
+    trendMessage.className = 'trend-message';
+    trendMessage.style.margin = '0.5rem 0 0 0';
+    trendMessage.style.fontSize = '0.9rem';
+    trendMessage.style.fontWeight = 'bold';
+
+    // Color-code and add visual indicator based on trend
+    if (trend.trend === 'improving') {
+        trendMessage.style.color = '#10b981';  // Green (success)
+        trendMessage.innerHTML = `↑ ${trend.improvement_message}`;
+    } else if (trend.trend === 'declining') {
+        trendMessage.style.color = '#f59e0b';  // Amber (caution)
+        trendMessage.innerHTML = `↓ ${trend.improvement_message}`;
+    } else if (trend.trend === 'stable') {
+        trendMessage.style.color = '#6b7280';  // Gray (neutral)
+        trendMessage.innerHTML = `→ ${trend.improvement_message}`;
+    } else {
+        // insufficient_data - show message without indicator
+        trendMessage.style.color = '#6b7280';  // Gray
+        trendMessage.style.fontWeight = 'normal';
+        trendMessage.textContent = trend.improvement_message;
+    }
+
+    // Insert message after header (visual hierarchy: Title → Progress → Table)
+    // Defensive programming: Verify parent exists (Code Review Fix #10)
+    if (!historyHeader.parentElement) {
+        if (DEBUG) {
+            console.error('7-Day History header has no parent element - cannot place trend message');
+        }
+        return;
+    }
+    historyHeader.parentElement.appendChild(trendMessage);
+
+    if (DEBUG) {
+        console.log(`Trend message displayed: ${trend.trend} (${trend.score_change} points)`);
+    }
+}
+
+/**
+ * Handle trend load error - Story 4.5 AC3.
+ * Silently fails to avoid disrupting dashboard (trend is optional enhancement).
+ *
+ * @param {Error} error - Error object from fetch failure
+ * @returns {void}
+ */
+function handleTrendLoadError(error) {
+    // Trend message is optional enhancement - don't show error UI
+    // Just log for debugging
+    console.error('Trend unavailable:', error.message);
+}
+
 
 // Update timestamp every second
 setInterval(updateTimestamp, 1000);
@@ -822,6 +951,10 @@ const statsPollingInterval = setInterval(loadTodayStats, 30000);  // 30 seconds 
 
 // Refresh history every 30 seconds to stay in sync with today's stats - Story 4.4 AC2
 const historyPollingInterval = setInterval(load7DayHistory, 30000);
+
+// Refresh trend every 60 seconds to stay in sync with history updates - Story 4.5 AC5
+// (Longer interval than history because trend changes less frequently)
+const trendPollingInterval = setInterval(loadTrendData, 60000);  // 60 seconds = 60000ms
 
 // Enterprise-grade polling cleanup using Page Visibility API
 // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event
@@ -840,6 +973,7 @@ document.addEventListener('visibilitychange', () => {
         if (DEBUG) console.log('Tab visible - fetching fresh stats and history (Page Visibility API)');
         loadTodayStats();  // Immediate refresh when user returns
         load7DayHistory();  // Story 4.4: Refresh history too
+        loadTrendData();    // Story 4.5: Refresh trend too
     }
 });
 
@@ -849,6 +983,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
     clearInterval(statsPollingInterval);
     clearInterval(historyPollingInterval);
+    clearInterval(trendPollingInterval);
     if (DEBUG) console.log('Polling timers cleaned up (pagehide)');
 });
 
