@@ -126,6 +126,25 @@ def create_app(config_name="development"):
     else:
         app.logger.info("CV pipeline disabled in test mode")
 
+    # Start daily scheduler (Story 4.6)
+    # Skip in test environment to avoid thread interference
+    if not app.config.get('TESTING', False):
+        with app.app_context():
+            from app.system.scheduler import start_scheduler
+
+            # Start scheduler (returns instance for potential manual control)
+            scheduler = start_scheduler(app)
+
+            if scheduler and scheduler.running:
+                app.logger.info("Daily scheduler started successfully")
+            else:
+                app.logger.error(
+                    "Failed to start daily scheduler - end-of-day summaries "
+                    "will not be sent automatically"
+                )
+    else:
+        app.logger.info("Daily scheduler disabled in test mode")
+
     return app
 
 

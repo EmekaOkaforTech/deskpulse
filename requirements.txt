@@ -6,6 +6,7 @@ opencv-python>=4.8.0,<4.10.0  # Compatible with numpy<2
 mediapipe>=0.10.18,<0.11.0  # Story 2.2 - Pose landmark detection
 numpy<2  # Required by MediaPipe
 sdnotify>=0.3.2
+schedule>=1.2.0  # Story 4.6 - Daily task scheduler for end-of-day summaries
 systemd-python>=235
 # NOTE: MediaPipe is compatible with ARM64 (Raspberry Pi OS 64-bit)
 # Version 0.10.18+ adds Python 3.13 support and NumPy 2.x compatibility
