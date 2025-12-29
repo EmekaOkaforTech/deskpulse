@@ -125,19 +125,25 @@ class PostureAnalytics:
             elif current_event['posture_state'] == 'bad':
                 bad_duration += duration
 
-        # Handle last event (cap at 10 minutes or end of day, whichever is sooner)
+        # Handle last event (cap at 10 minutes or end boundary, whichever is sooner)
         last_event = events[-1]
         last_timestamp = last_event['timestamp']
         if isinstance(last_timestamp, str):
             last_timestamp = datetime.fromisoformat(last_timestamp)
 
-        end_of_day = datetime.combine(target_date, time.max)  # 23:59:59.999999
+        # CRITICAL FIX: For today, use current time as endpoint (live stats)
+        # For past dates, use end of day
+        # This prevents phantom time accumulation at start of day
+        if target_date == date.today():
+            end_boundary = datetime.now()
+        else:
+            end_boundary = datetime.combine(target_date, time.max)  # 23:59:59.999999
 
         # CRITICAL: Protect against negative durations from clock skew or timezone issues
-        # If last event is after EOD (shouldn't happen, but defensive programming),
+        # If last event is after end_boundary (shouldn't happen, but defensive programming),
         # max(0, ...) ensures we never add negative duration
         remaining_duration = max(0, min(
-            (end_of_day - last_timestamp).total_seconds(),
+            (end_boundary - last_timestamp).total_seconds(),
             600  # Cap at 10 minutes (prevents overnight inflation)
         ))
 
