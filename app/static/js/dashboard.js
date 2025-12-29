@@ -503,18 +503,22 @@ function updateTodayStatsDisplay(stats) {
 function formatDuration(seconds) {
     // Handle zero and negative durations (edge case)
     if (seconds <= 0) {
-        return '0m';
+        return '0s';
     }
 
-    // Calculate hours and minutes
+    // Calculate hours, minutes, and seconds
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
 
     // Format based on duration
     if (hours > 0) {
         return `${hours}h ${minutes}m`;
-    } else {
+    } else if (minutes > 0) {
         return `${minutes}m`;
+    } else {
+        // Less than 1 minute - show seconds
+        return `${secs}s`;
     }
 }
 
