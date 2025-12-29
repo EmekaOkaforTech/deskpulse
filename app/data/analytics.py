@@ -28,7 +28,7 @@ class PostureAnalytics:
     """
 
     @staticmethod
-    def calculate_daily_stats(target_date: date) -> Dict[str, Any]:
+    def calculate_daily_stats(target_date: date, pause_timestamp=None) -> Dict[str, Any]:
         """Calculate daily posture statistics from real event data.
 
         Args:
@@ -132,10 +132,16 @@ class PostureAnalytics:
             last_timestamp = datetime.fromisoformat(last_timestamp)
 
         # CRITICAL FIX: For today, use current time as endpoint (live stats)
+        # BUT if monitoring is paused, use pause_timestamp to prevent phantom accumulation
         # For past dates, use end of day
-        # This prevents phantom time accumulation at start of day
         if target_date == date.today():
-            end_boundary = datetime.now()
+            if pause_timestamp is not None:
+                # Monitoring is paused - use pause time, NOT current time
+                # This prevents the last event from accumulating duration while paused
+                end_boundary = pause_timestamp
+            else:
+                # Monitoring active - use current time for live stats
+                end_boundary = datetime.now()
         else:
             end_boundary = datetime.combine(target_date, time.max)  # 23:59:59.999999
 

@@ -88,3 +88,44 @@ def get_history():
     except Exception:
         logger.exception("Failed to get history")  # Exception auto-included by logger.exception()
         return jsonify({'error': 'Failed to retrieve history'}), 500
+
+
+@bp.route('/stats/trend', methods=['GET'])
+def get_trend():
+    """Get posture improvement trend analysis.
+
+    Returns:
+        JSON: Trend analysis dict with 200 status
+        {
+            "trend": "improving",                       # 'improving', 'stable', 'declining', 'insufficient_data'
+            "average_score": 68.5,                      # 0-100 percentage (1 decimal)
+            "score_change": 12.3,                       # Points change first → last day (1 decimal)
+            "best_day": {                               # Daily stats dict for best day
+                "date": "2025-12-27",
+                "posture_score": 75.2,
+                ...
+            },
+            "improvement_message": "You've improved 12.3 points this week! Keep it up!"
+        }
+
+    Error Response:
+        JSON: {"error": "Failed to calculate trend"} with 500 status
+    """
+    try:
+        # Get 7-day history (reuses existing method from Story 4.2)
+        history = PostureAnalytics.get_7_day_history()
+
+        # Calculate trend analysis
+        trend_data = PostureAnalytics.calculate_trend(history)
+
+        # Convert date objects to ISO 8601 strings for JSON serialization
+        # best_day may contain date object that needs serialization
+        if trend_data['best_day'] and 'date' in trend_data['best_day']:
+            trend_data['best_day']['date'] = trend_data['best_day']['date'].isoformat()
+
+        logger.debug(f"Trend data: {trend_data['trend']}, change={trend_data['score_change']}")
+        return jsonify(trend_data), 200
+
+    except Exception:
+        logger.exception("Failed to get trend")  # Exception auto-included by logger.exception()
+        return jsonify({'error': 'Failed to calculate trend'}), 500
