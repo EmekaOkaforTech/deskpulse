@@ -46,6 +46,7 @@ class AlertManager:
         self.bad_posture_start_time = None
         self.last_alert_time = None
         self.monitoring_paused = False
+        self.pause_timestamp = None  # Track when monitoring was paused
 
     def process_posture_update(self, posture_state, user_present):
         """
@@ -164,14 +165,17 @@ class AlertManager:
 
     def pause_monitoring(self):
         """Pause posture monitoring (privacy mode - FR11)."""
+        from datetime import datetime
         self.monitoring_paused = True
+        self.pause_timestamp = datetime.now()  # Record when paused
         self.bad_posture_start_time = None
         self.last_alert_time = None
-        logger.info("Monitoring paused by user")
+        logger.info(f"Monitoring paused by user at {self.pause_timestamp}")
 
     def resume_monitoring(self):
         """Resume posture monitoring (FR12)."""
         self.monitoring_paused = False
+        self.pause_timestamp = None  # Clear pause timestamp
         logger.info("Monitoring resumed by user")
 
     def get_monitoring_status(self):
