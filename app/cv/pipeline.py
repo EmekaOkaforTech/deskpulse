@@ -364,8 +364,12 @@ class CVPipeline:
                 # ==================================================
                 # Story 4.1: Posture Event Database Persistence
                 # ==================================================
+                # CRITICAL: Only persist events when user is actually present
+                # Prevents phantom tracking when user is away from desk
                 # Only persist state transitions (prevents duplicate events at 10 FPS)
-                if posture_state != self.last_posture_state and posture_state is not None:
+                if (posture_state != self.last_posture_state and
+                    posture_state is not None and
+                    detection_result['user_present']):
                     try:
                         # CRITICAL: Wrap in app context for background thread (same pattern as alerts/notifications)
                         # Flask's current_app is thread-local and unavailable in CV thread
