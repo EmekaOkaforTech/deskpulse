@@ -457,24 +457,30 @@ def format_duration(seconds: Union[int, float]) -> str:
         str: Formatted duration:
             - "2h 15m" for hours+minutes
             - "45m" for minutes only
-            - "0m" for zero or negative values
+            - "11s" for seconds only (< 1 minute)
+            - "0s" for zero or negative values
 
     Examples:
         format_duration(7890) -> "2h 11m"
         format_duration(300) -> "5m"
-        format_duration(0) -> "0m"
-        format_duration(-100) -> "0m"
+        format_duration(11) -> "11s"
+        format_duration(0) -> "0s"
+        format_duration(-100) -> "0s"
     """
     # Handle zero and negative durations (edge case)
     if seconds <= 0:
-        return "0m"
+        return "0s"
 
-    # Calculate hours and minutes
+    # Calculate hours, minutes, and seconds
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
 
     # Format based on duration
     if hours > 0:
         return f"{hours}h {minutes}m"
-    else:
+    elif minutes > 0:
         return f"{minutes}m"
+    else:
+        # Less than 1 minute - show seconds
+        return f"{secs}s"
