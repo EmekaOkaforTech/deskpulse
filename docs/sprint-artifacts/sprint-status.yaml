@@ -95,3 +95,12 @@ development_status:
   6-5-comprehensive-documentation-structure: backlog
   6-6-changelog-md-and-version-management: backlog
   epic-6-retrospective: optional
+  # Epic 7: Windows Desktop Client Integration
+  epic-7: in-progress
+  7-1-windows-system-tray-icon-and-application-shell: done  # Code reviewed, 12 issues found and fixed (10 HIGH, 2 MEDIUM), 37/37 tests passing, enterprise-grade error handling
+  7-2-windows-toast-notifications: review  # Code review COMPLETE (10 issues fixed), 29/29 tests passing, production-ready (pending manual E2E validation on Windows+Pi)
+  7-3-desktop-client-websocket-integration: review  # Automated testing complete (60/60 tests passing), manual E2E pending, ready for code review
+  7-4-system-tray-menu-controls: backlog
+  7-5-windows-installer-with-pyinstaller: backlog
+  epic-7-retrospective: optional
+
