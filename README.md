@@ -184,6 +184,69 @@ cd ~/deskpulse
 
 Optionally preserves your posture history database.
 
+## Windows Desktop Client
+
+DeskPulse includes a native Windows desktop client that runs in your system tray and connects to your Raspberry Pi backend.
+
+### Features
+
+- **System Tray Integration**: Runs quietly in background, accessible from tray icon
+- **Real-time Notifications**: Toast notifications for alerts and status updates
+- **Live Stats**: View today's posture statistics from tray menu
+- **Pause/Resume Control**: Pause monitoring when stepping away
+- **Auto-Start Option**: Launch automatically when Windows starts
+- **No Python Required**: Standalone installer - works on any Windows 10/11 PC
+
+### Quick Install
+
+1. **Download installer**: [DeskPulse-Setup-v1.0.0.exe](http://192.168.10.126:2221/Emeka/deskpulse/releases)
+2. **Run installer**: Double-click the downloaded file
+   - Windows may show SmartScreen warning (click "More info" → "Run anyway")
+   - This is normal for unsigned open-source software
+3. **Follow wizard**: Choose installation location and options
+4. **Launch DeskPulse**: Starts automatically after installation
+
+### Requirements
+
+- **Windows 10 (1803+) or Windows 11** (64-bit)
+- **Raspberry Pi** with DeskPulse backend running on same network
+- **No Python installation needed** - completely standalone
+
+### Configuration
+
+On first launch, DeskPulse creates config at: `%APPDATA%\DeskPulse\config.json`
+
+**Default backend**: `http://raspberrypi.local:5000`
+
+**To change backend URL**:
+1. Right-click tray icon → "Exit"
+2. Edit: `C:\Users\YourName\AppData\Roaming\DeskPulse\config.json`
+   ```json
+   {
+     "backend_url": "http://192.168.1.100:5000"
+   }
+   ```
+3. Restart DeskPulse
+
+### System Tray Menu
+
+Right-click the tray icon to access:
+- **Pause/Resume Monitoring**: Control monitoring state
+- **View Stats → Today's Stats**: See your posture statistics
+- **Open Dashboard**: Launch backend dashboard in browser
+- **Exit**: Close DeskPulse
+
+### Building from Source (Advanced)
+
+See [build/windows/README.md](build/windows/README.md) for detailed build instructions.
+
+**Quick build** (requires Python 3.9+, PyInstaller):
+```powershell
+.\build\windows\build.ps1
+```
+
+**Output**: `dist/DeskPulse/DeskPulse.exe`
+
 ## Troubleshooting
 
 ### Camera Not Detected
