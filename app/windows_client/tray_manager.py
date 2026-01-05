@@ -197,13 +197,15 @@ class TrayManager:
             # Show MessageBox if browser fails to open
             try:
                 import ctypes
+                MB_OK = 0x0
+                MB_SYSTEMMODAL = 0x1000
                 ctypes.windll.user32.MessageBoxW(
                     0,
                     f"Failed to open browser.\n\n"
                     f"Please visit manually:\n{self.backend_url}\n\n"
                     f"Error: {e}",
                     "DeskPulse",
-                    0  # MB_OK
+                    MB_OK | MB_SYSTEMMODAL
                 )
             except Exception:
                 pass  # MessageBox failed, already logged error
@@ -291,12 +293,14 @@ class TrayManager:
                     f"Backend: {self.backend_url}"
                 )
 
-            # Show MessageBox
+            # Show MessageBox (MB_OK | MB_SYSTEMMODAL for proper focus)
+            MB_OK = 0x0
+            MB_SYSTEMMODAL = 0x1000
             ctypes.windll.user32.MessageBoxW(
                 0,
                 message,
                 "DeskPulse Stats",
-                0  # MB_OK
+                MB_OK | MB_SYSTEMMODAL  # System modal - always on top, gets focus
             )
 
             logger.info("Today's stats displayed")
@@ -384,11 +388,13 @@ class TrayManager:
                 f"Note: Changing backend URL requires valid local network address."
             )
 
+            MB_OK = 0x0
+            MB_SYSTEMMODAL = 0x1000
             ctypes.windll.user32.MessageBoxW(
                 0,
                 message,
                 "DeskPulse Settings",
-                0  # MB_OK
+                MB_OK | MB_SYSTEMMODAL  # System modal - always on top, gets focus
             )
         except Exception as e:
             logger.exception(f"Error showing settings: {e}")
@@ -422,11 +428,13 @@ class TrayManager:
                 f"🤖 Generated with Claude Code"
             )
 
+            MB_OK = 0x0
+            MB_SYSTEMMODAL = 0x1000
             ctypes.windll.user32.MessageBoxW(
                 0,
                 message,
                 "About DeskPulse",
-                0  # MB_OK
+                MB_OK | MB_SYSTEMMODAL
             )
         except Exception as e:
             logger.exception(f"Error showing about: {e}")
