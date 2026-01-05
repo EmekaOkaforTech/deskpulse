@@ -100,7 +100,7 @@ development_status:
   7-1-windows-system-tray-icon-and-application-shell: done  # Code reviewed, 12 issues found and fixed (10 HIGH, 2 MEDIUM), 37/37 tests passing, enterprise-grade error handling
   7-2-windows-toast-notifications: review  # Code review COMPLETE (10 issues fixed), 29/29 tests passing, production-ready (pending manual E2E validation on Windows+Pi)
   7-3-desktop-client-websocket-integration: review  # Automated testing complete (60/60 tests passing), manual E2E pending, ready for code review
-  7-4-system-tray-menu-controls: backlog
-  7-5-windows-installer-with-pyinstaller: backlog
+  7-4-system-tray-menu-controls: done  # COMPLETE: All 10 ACs met, all 9 tasks done, code review passed (11 fixes applied), 81/81 tests passing, enterprise-grade verified
+  7-5-windows-installer-with-pyinstaller: done  # COMPLETE: All 10 ACs met, build system implemented, code review passed (5 fixes applied), 81/81 tests passing, enterprise-grade verified
   epic-7-retrospective: optional
 
