@@ -8,8 +8,10 @@ import time
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
+# Version
+__version__ = '1.0.0'
+
 # Import Windows client modules
-from app.windows_client import __version__
 from app.windows_client.config import (
     load_config,
     save_config,
