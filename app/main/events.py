@@ -297,6 +297,44 @@ def handle_resume_monitoring():
         }, room=client_sid)
 
 
+@socketio.on('request_status')
+def handle_request_status():
+    """
+    Handle status request from Windows desktop client - Story 7.4.
+
+    Windows client emits this on connect to get current monitoring state.
+    Responds with monitoring_status to update tray menu enabled/disabled states.
+
+    Emits:
+        monitoring_status: Current monitoring state to requesting client only
+    """
+    from flask import current_app
+    client_sid = request.sid
+    logger.info(f"Status request from client {client_sid}")
+
+    try:
+        # Get cv_pipeline (test mode uses current_app.cv_pipeline_test)
+        cv_pipeline = getattr(current_app, 'cv_pipeline_test', None) or app.cv_pipeline
+
+        if cv_pipeline and cv_pipeline.alert_manager:
+            # Get current status and emit to requesting client only
+            status = cv_pipeline.alert_manager.get_monitoring_status()
+            socketio.emit('monitoring_status', status, room=client_sid)
+            logger.info(f"Sent monitoring_status to {client_sid}: {status}")
+        else:
+            # CV pipeline not ready - send default status
+            logger.warning(f"CV pipeline not available for status request from {client_sid}")
+            socketio.emit('monitoring_status', {
+                'monitoring_active': True  # Default to active
+            }, room=client_sid)
+    except Exception as e:
+        logger.exception(f"Error handling status request: {e}")
+        # Send default status on error
+        socketio.emit('monitoring_status', {
+            'monitoring_active': True
+        }, room=client_sid)
+
+
 @socketio.on_error_default
 def default_error_handler(e):
     """
