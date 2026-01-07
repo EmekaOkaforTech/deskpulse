@@ -2,8 +2,9 @@
 
 **Story ID:** 8.1
 **Epic:** Epic 8 - Standalone Windows Edition
-**Status:** In Progress
+**Status:** Ready for Dev (Code Complete - Needs Windows Testing)
 **Started:** 2026-01-07
+**Updated:** 2026-01-07
 
 ---
 
@@ -224,22 +225,28 @@ def test_camera_open_close():
 
 ## Progress Tracker
 
-**Completed:**
-- [x] Windows configuration module
+**Completed (Code Written):**
+- [x] Windows configuration module (config.py)
 - [x] Windows path handling (%APPDATA%)
 - [x] JSON configuration system
 - [x] Logging configuration (file-based)
-- [x] Windows camera capture (DirectShow)
-- [x] Camera detection
+- [x] Windows camera capture (camera_windows.py)
+- [x] Camera detection (detect_cameras)
 - [x] Camera testing utilities
+- [x] Backend thread wrapper (backend_thread.py)
+- [x] Modified Flask app for standalone mode (app/__init__.py)
+- [x] StandaloneConfig class (app/config.py)
 
-**In Progress:**
-- [ ] Backend thread wrapper
-- [ ] Modify existing backend for Windows
-- [ ] Integration testing
+**Missing (NOT DONE):**
+- [ ] **CRITICAL: Windows testing** - Zero code executed on Windows PC
+- [ ] Manual validation of all acceptance criteria
+- [ ] Backend thread wrapper integration test
+- [ ] Camera detection test on actual Windows
+- [ ] Config file creation test on Windows
+- [ ] SQLite database creation test in %APPDATA%
 
 **Blocked:**
-- None
+- Requires Windows PC for testing (development done on Linux/Pi)
 
 ---
 

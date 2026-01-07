@@ -106,8 +106,8 @@ development_status:
 
   # Epic 8: Standalone Windows Edition (No Pi Required) - COMMERCIAL PRIMARY PRODUCT
   epic-8: in-progress  # CRITICAL: Main commercial product (90% of paid market), serves non-tech users
-  8-1-windows-backend-port: done  # Windows config module, backend thread wrapper, StandaloneConfig, standalone_mode support
-  8-2-windows-camera-capture: done  # DirectShow camera integration, camera detection, WindowsCamera class with test functionality
+  8-1-windows-backend-port: ready-for-dev  # Code complete (config, backend_thread, StandaloneConfig) but UNTESTED on Windows - needs Windows validation before done
+  8-2-windows-camera-capture: ready-for-dev  # Core complete (DirectShow, detect_cameras, WindowsCamera) but MISSING: camera selection dialog, permission handling, Windows testing
   8-3-local-architecture-ipc: backlog  # Remove SocketIO dependency, implement local IPC with threading queues
   8-4-unified-system-tray-application: backlog  # Single .exe with backend + tray UI, backend in background thread, direct function calls
   8-5-all-in-one-installer: backlog  # PyInstaller standalone build, ~40-50 MB single .exe, bundled dependencies, one-click install
