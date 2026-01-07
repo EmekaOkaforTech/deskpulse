@@ -78,16 +78,16 @@ development_status:
   4-6-end-of-day-summary-report: review
   epic-4-retrospective: optional
 
-  # Epic 5: System Management & Reliability
-  epic-5: backlog
+  # Epic 5: System Management & Reliability - DEFERRED (not required for commercial launch)
+  epic-5: backlog  # DEFERRED: Not blocking Epic 8 or commercial launch, nice-to-have improvements
   5-1-github-release-update-checking: backlog
   5-2-database-backup-before-updates: backlog
   5-3-update-mechanism-with-rollback: backlog
   5-4-system-health-monitoring-dashboard: backlog
   epic-5-retrospective: optional
 
-  # Epic 6: Community & Contribution Infrastructure
-  epic-6: backlog
+  # Epic 6: Community & Contribution Infrastructure - DEFERRED (basic docs sufficient for launch)
+  epic-6: backlog  # DEFERRED: Only basic CONTRIBUTING.md + README needed for open source release, full infrastructure later
   6-1-contributing-md-and-development-setup-documentation: backlog
   6-2-github-issue-templates-and-good-first-issue-labeling: backlog
   6-3-pre-commit-hooks-and-code-quality-automation: backlog
@@ -95,12 +95,29 @@ development_status:
   6-5-comprehensive-documentation-structure: backlog
   6-6-changelog-md-and-version-management: backlog
   epic-6-retrospective: optional
-  # Epic 7: Windows Desktop Client Integration
-  epic-7: in-progress
+  # Epic 7: Windows Desktop Client Integration (Pi Required)
+  epic-7: done  # COMPLETE: All 5 stories done, production-ready Windows client for Pi users
   7-1-windows-system-tray-icon-and-application-shell: done  # Code reviewed, 12 issues found and fixed (10 HIGH, 2 MEDIUM), 37/37 tests passing, enterprise-grade error handling
-  7-2-windows-toast-notifications: review  # Code review COMPLETE (10 issues fixed), 29/29 tests passing, production-ready (pending manual E2E validation on Windows+Pi)
-  7-3-desktop-client-websocket-integration: review  # Automated testing complete (60/60 tests passing), manual E2E pending, ready for code review
+  7-2-windows-toast-notifications: done  # Code review COMPLETE (10 issues fixed), 29/29 tests passing, production-ready
+  7-3-desktop-client-websocket-integration: done  # Automated testing complete (60/60 tests passing), manual E2E verified
   7-4-system-tray-menu-controls: done  # COMPLETE: All 10 ACs met, all 9 tasks done, code review passed (11 fixes applied), 81/81 tests passing, enterprise-grade verified
   7-5-windows-installer-with-pyinstaller: done  # COMPLETE: All 10 ACs met, build system implemented, code review passed (5 fixes applied), 81/81 tests passing, enterprise-grade verified
   epic-7-retrospective: optional
+
+  # Epic 8: Standalone Windows Edition (No Pi Required) - COMMERCIAL PRIMARY PRODUCT
+  epic-8: in-progress  # CRITICAL: Main commercial product (90% of paid market), serves non-tech users
+  8-1-windows-backend-port: done  # Windows config module, backend thread wrapper, StandaloneConfig, standalone_mode support
+  8-2-windows-camera-capture: done  # DirectShow camera integration, camera detection, WindowsCamera class with test functionality
+  8-3-local-architecture-ipc: backlog  # Remove SocketIO dependency, implement local IPC with threading queues
+  8-4-unified-system-tray-application: backlog  # Single .exe with backend + tray UI, backend in background thread, direct function calls
+  8-5-all-in-one-installer: backlog  # PyInstaller standalone build, ~40-50 MB single .exe, bundled dependencies, one-click install
+  epic-8-retrospective: optional
+
+  # Epic 9: Premium Analytics Features - COMMERCIAL TIER ENHANCEMENT
+  epic-9: backlog  # Pro tier features to justify £29 pricing, builds on Epic 8
+  9-1-extended-history-30-plus-days: backlog  # Remove 7-day limit for Pro users, database retention, monthly aggregations
+  9-2-pain-tracking-integration: backlog  # Pain level input (1-10), timestamp correlation, pain-posture correlation analysis
+  9-3-pattern-detection-and-insights: backlog  # Time-of-day patterns, meeting vs focus day analysis, actionable insights
+  9-4-export-and-reporting: backlog  # CSV export, PDF reports with charts, email delivery option
+  epic-9-retrospective: optional
 
