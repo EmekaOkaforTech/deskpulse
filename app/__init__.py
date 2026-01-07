@@ -8,11 +8,27 @@ from app.core import configure_logging
 cv_pipeline = None
 
 
-def create_app(config_name="development"):
+def create_app(config_name="development", database_path=None, standalone_mode=False):
+    """
+    Create Flask application.
+
+    Args:
+        config_name: Configuration name (development, production, testing, standalone)
+        database_path: Optional custom database path (for standalone mode)
+        standalone_mode: If True, skip SocketIO, Talisman, scheduler (for standalone Windows)
+
+    Returns:
+        Flask app instance
+    """
     app = Flask(__name__)
 
     # Load configuration
     app.config.from_object(f"app.config.{config_name.capitalize()}Config")
+
+    # Override database path if provided (for standalone mode)
+    if database_path:
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+        app.logger.info(f"Using custom database: {database_path}")
 
     # Configure logging
     configure_logging(app)
@@ -20,7 +36,8 @@ def create_app(config_name="development"):
     # Enterprise Security: Content Security Policy (CSP) headers
     # Protects against XSS, clickjacking, code injection attacks
     # Reference: https://binaryscripts.com/flask/2025/02/10/securing-flask-applications-with-content-security-policies-csp.html
-    if not app.config.get('TESTING', False):
+    # Skip in standalone mode (no web access needed)
+    if not app.config.get('TESTING', False) and not standalone_mode:
         # CSP Configuration for production/development
         csp = {
             'default-src': ["'self'"],  # Default: only same-origin
@@ -36,6 +53,7 @@ def create_app(config_name="development"):
             ],
             'connect-src': [
                 "'self'",
+                'ws://*:5000',  # WebSocket all IPs on port 5000 (local network)
                 'ws://localhost:5000',  # WebSocket local development
                 'ws://127.0.0.1:5000',  # WebSocket localhost
                 'wss://deskpulse.local',  # WebSocket production (HTTPS)
@@ -74,16 +92,19 @@ def create_app(config_name="development"):
 
     # Initialize extensions
     init_db(app)
+
     # Initialize SocketIO AFTER app created, BEFORE blueprint registration
     # Architecture: async_mode='threading' for CV pipeline compatibility
-    socketio.init_app(
-        app,
-        cors_allowed_origins="*",  # Allow cross-origin for local network access
-        logger=True,
-        engineio_logger=False,  # Reduce log spam
-        ping_timeout=10,  # 10 seconds to respond to ping
-        ping_interval=25  # Send ping every 25 seconds
-    )
+    # Skip in standalone mode (uses local IPC instead)
+    if not standalone_mode:
+        socketio.init_app(
+            app,
+            cors_allowed_origins="*",  # Allow cross-origin for local network access
+            logger=True,
+            engineio_logger=False,  # Reduce log spam
+            ping_timeout=10,  # 10 seconds to respond to ping
+            ping_interval=25  # Send ping every 25 seconds
+        )
 
     # Register blueprints
     from app.main import bp as main_bp
@@ -96,13 +117,16 @@ def create_app(config_name="development"):
 
     # Import SocketIO event handlers (registers @socketio.on decorators)
     # CRITICAL: Import AFTER socketio.init_app() to ensure app context
-    with app.app_context():
-        from app.main import events  # noqa: F401
+    # Skip in standalone mode (no SocketIO)
+    if not standalone_mode:
+        with app.app_context():
+            from app.main import events  # noqa: F401
 
     # Start CV pipeline in dedicated thread (Story 2.4)
     # Skip in test environment to avoid thread interference
+    # Skip in standalone mode (managed externally by backend_thread.py)
     # Must run within app context to access config
-    if not app.config.get('TESTING', False):
+    if not app.config.get('TESTING', False) and not standalone_mode:
         with app.app_context():
             global cv_pipeline
             from app.cv.pipeline import CVPipeline
@@ -123,12 +147,15 @@ def create_app(config_name="development"):
                     atexit.register(cleanup_cv_pipeline)
             else:
                 app.logger.info("CV pipeline already running")
+    elif standalone_mode:
+        app.logger.info("CV pipeline will be managed by standalone mode")
     else:
         app.logger.info("CV pipeline disabled in test mode")
 
     # Start daily scheduler (Story 4.6)
     # Skip in test environment to avoid thread interference
-    if not app.config.get('TESTING', False):
+    # Skip in standalone mode (not needed for Windows)
+    if not app.config.get('TESTING', False) and not standalone_mode:
         with app.app_context():
             from app.system.scheduler import start_scheduler
 
@@ -142,6 +169,8 @@ def create_app(config_name="development"):
                     "Failed to start daily scheduler - end-of-day summaries "
                     "will not be sent automatically"
                 )
+    elif standalone_mode:
+        app.logger.info("Daily scheduler disabled in standalone mode")
     else:
         app.logger.info("Daily scheduler disabled in test mode")
 

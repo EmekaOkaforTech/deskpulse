@@ -6207,3 +6207,289 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _End of Epic Breakdown Document_
 
+
+---
+
+## Epic 7: Windows Desktop Client Integration
+
+**Epic Goal:** Users can receive posture monitoring notifications and control DeskPulse through a native Windows desktop application with system tray integration, enabling seamless Windows desktop experience without keeping a browser tab open.
+
+**User Value:** Windows users receive native toast notifications, control monitoring from system tray, and access quick stats without browser - professional desktop integration that feels like built-in OS feature.
+
+**PRD Coverage:** FR61-FR65 (Windows extension - new requirements)
+
+**Architecture Integration:** Desktop client with pystray (system tray), win10toast (notifications), python-socketio (WebSocket), PyInstaller (standalone .exe)
+
+**UX Integration:** Native Windows experience, "quietly capable" background operation, quick controls via right-click menu, hover tooltip stats
+
+**Dependencies:** Epic 2 (SocketIO events), Epic 3 (Alert events), Epic 4 (Stats API)
+
+**Platform:** Windows 10/11 (64-bit) connecting to Raspberry Pi Flask backend
+
+### Epic 7 Stories
+
+**Story 7.1:** Windows System Tray Icon and Application Shell  
+**Story 7.2:** Windows Toast Notifications  
+**Story 7.3:** Desktop Client WebSocket Integration  
+**Story 7.4:** System Tray Menu Controls  
+**Story 7.5:** Windows Installer with PyInstaller
+
+**Implementation Status:** Planning
+
+**Full Epic Details:** See `/docs/sprint-artifacts/epic-7-windows-desktop-client.md`
+
+---
+
+## Updated Epic Summary
+
+### All Epics (1-9) - Updated 2026-01-07
+
+**Epic 1:** Foundation Setup & Installation (7 stories) - ✅ Complete
+**Epic 2:** Real-Time Posture Monitoring (7 stories) - ✅ Complete
+**Epic 3:** Alert & Notification System (6 stories) - ✅ Complete
+**Epic 4:** Progress Tracking & Analytics (6 stories) - ✅ Complete
+**Epic 5:** System Management & Reliability (4 stories) - ⏸️ Deferred (not required for launch)
+**Epic 6:** Community & Contribution Infrastructure (6 stories) - ⏸️ Deferred (basic docs only)
+**Epic 7:** Windows Desktop Client (Pi Required) (5 stories) - ✅ Complete
+**Epic 8:** Standalone Windows Edition (No Pi) (5 stories) - 🔄 IN PROGRESS (Stories 8.1-8.2 complete)
+**Epic 9:** Premium Analytics Features (4 stories) - 📋 Planned (after Epic 8)
+
+**Total: 9 Epics, 55 Stories**
+- **Complete:** Epics 1-4, 7 (32 stories)
+- **In Progress:** Epic 8 (2/5 stories complete)
+- **Deferred:** Epics 5-6 (not blocking commercial launch)
+- **Planned:** Epic 9 (enhances Pro tier)
+
+### Updated FR Coverage
+
+**Original Requirements:**
+- ✅ FR1-FR60: 60/60 Functional Requirements covered (100%)
+
+**New Requirements (Windows Extension):**
+- FR61: Windows system tray integration → Story 7.1
+- FR62: Windows toast notification delivery → Story 7.2
+- FR63: Desktop client WebSocket connection → Story 7.3
+- FR64: System tray menu controls → Story 7.4
+- FR65: Standalone Windows installer (.exe) → Story 7.5
+
+**Updated Total:** 65 Functional Requirements, 41 Implementation Stories
+
+### Windows Epic Technical Stack
+
+**Required Python Packages:**
+```
+pystray>=0.19.4          # System tray icon
+Pillow>=10.0.0           # Icon image generation
+win10toast>=0.9          # Windows toast notifications
+python-socketio>=5.9.0   # WebSocket client
+requests>=2.31.0         # REST API client
+PyInstaller>=6.0.0       # Build standalone .exe
+```
+
+**Build Tools:**
+- PyInstaller 6.0+ (bundle Python app as .exe)
+- Inno Setup 6 (optional - create Windows installer)
+
+**Deployment:**
+- Standalone .exe: ~25-30 MB (includes Python runtime)
+- Installer: DeskPulse-Setup.exe with Start Menu shortcuts
+- No Python installation required for end users
+
+---
+
+_Epic Breakdown Document - Updated 2025-12-29 with Epic 7: Windows Desktop Client Integration_
+
+
+---
+
+## Epic 8: Standalone Windows Edition (No Pi Required)
+
+**Epic Goal:** Windows users can run DeskPulse entirely on their PC without purchasing Raspberry Pi hardware, using built-in/USB webcam for posture monitoring.
+
+**User Value:** Non-technical Windows users get complete posture monitoring with one installer - no hardware purchase, no network setup, no browser tabs.
+
+**PRD Coverage:** FR66-FR70 (Standalone Windows - commercial product)
+
+**Architecture Integration:** 
+- Flask backend in background thread
+- Windows DirectShow camera
+- Local IPC (no SocketIO)
+- SQLite in %APPDATA%
+- System tray integration
+- PyInstaller single .exe
+
+**UX Integration:** One-click installer, invisible background operation, native Windows experience
+
+**Dependencies:** Epic 7 (reuses tray UI code)
+
+**Platform:** Windows 10/11 (64-bit) standalone
+
+**Target Audience:** Mainstream Windows users, office workers, professionals (90% of paid market)
+
+### Epic 8 Stories
+
+**Story 8.1:** Windows Backend Port ✅ COMPLETE
+- Windows configuration module (%APPDATA% paths)
+- StandaloneConfig class
+- Backend runs without systemd
+- Custom database path support
+
+**Story 8.2:** Windows Camera Capture ✅ COMPLETE  
+- DirectShow camera integration
+- Camera detection (scans 0-5)
+- WindowsCamera class with context manager
+- Test functionality
+
+**Story 8.3:** Local Architecture (IPC without SocketIO) 🔄 IN PROGRESS
+- Remove SocketIO dependency
+- Direct function calls for alerts
+- Threading queues for events
+- Local notification delivery
+
+**Story 8.4:** Unified System Tray Application 📋 PENDING
+- Backend + tray in single process
+- Backend runs in background thread
+- Tray manager in main thread
+- Direct status updates
+
+**Story 8.5:** All-in-One Installer 📋 PENDING
+- PyInstaller build script
+- Single DeskPulse-Standalone.exe (~40-50 MB)
+- Bundled dependencies
+- One-click installation
+
+**Implementation Status:** IN PROGRESS (Stories 8.1-8.2 complete, 3/5 remaining)
+
+**Full Epic Details:** See `/docs/sprint-artifacts/epic-8-standalone-windows.md`
+
+**Commercial Positioning:** PRIMARY paid product (serves 90% of market)
+
+---
+
+## Epic 9: Premium Analytics Features
+
+**Epic Goal:** Pro tier users get advanced analytics that justify £29 pricing beyond convenience.
+
+**User Value:** Extended history, pain tracking, pattern detection, and export capabilities provide ongoing value.
+
+**PRD Coverage:** FR71-FR74 (Premium analytics - Pro tier)
+
+**Architecture Integration:**
+- Extended database retention (30+ days)
+- Analytics engine enhancements
+- Pain tracking data model
+- Export functionality (CSV/PDF)
+- Pattern detection algorithms
+
+**UX Integration:** Analytics dashboards, export UI, pain tracking forms, trend visualizations
+
+**Dependencies:** Epic 8 (standalone Windows is main product)
+
+**Platform:** Windows standalone + Pi (Pro features for both)
+
+**Target Audience:** Pro tier customers seeking ROI validation
+
+### Epic 9 Stories
+
+**Story 9.1:** Extended History (30+ Days) 📋 PLANNED
+- Remove 7-day limit for Pro users
+- Database retention policies
+- Performance optimization for large datasets
+- Monthly/yearly aggregations
+
+**Story 9.2:** Pain Tracking Integration 📋 PLANNED
+- Pain level input (1-10 scale)
+- Timestamp correlation with posture
+- Pain trend visualization
+- Posture-pain correlation analysis
+
+**Story 9.3:** Pattern Detection & Insights 📋 PLANNED
+- Time-of-day slouching patterns
+- Meeting day vs focus day analysis
+- Weekly/monthly trend detection
+- Actionable insights generation
+
+**Story 9.4:** Export & Reporting 📋 PLANNED
+- CSV export (all raw data)
+- PDF reports (weekly/monthly summaries)
+- Charts and visualizations
+- Email delivery option
+
+**Implementation Status:** PLANNED (after Epic 8 complete)
+
+**Timeline:** 2-3 weeks (post Epic 8 launch)
+
+---
+
+## Commercial Product Tiers (Updated 2026-01-07)
+
+### Free Tier (Open Source - Epics 1-4)
+- Raspberry Pi DIY version
+- 7-day history
+- Web dashboard
+- Pi desktop notifications
+- GitHub: Public repository
+- **Target:** Makers, developers (5-10% of users)
+
+### Pro Tier (£29 one-time)
+- **App 1:** DeskPulse Standalone (Epic 8) - NO Pi needed
+  - Uses PC webcam
+  - One-click installer
+  - 30-day history
+  - Premium analytics (Epic 9)
+- **App 2:** DeskPulse Pi Client (Epic 7) - Bonus for Pi owners
+  - Windows notifications for Pi setup
+  - Same Pro features
+- **Target:** Mainstream users (85-90% of market)
+
+### Future: Pro Mac Tier (£29)
+- Standalone Mac app (Epic 8b - future)
+- Same features as Windows Pro
+- **Target:** Mac users (5-10% of market)
+
+---
+
+## Roadmap & Timeline
+
+### Phase 1: Commercial Launch (Weeks 1-4) 🔄 IN PROGRESS
+- Week 1-3: Complete Epic 8 (Stories 8.3-8.5)
+- Week 4: Launch Pro (DeskPulse-Standalone.exe)
+- Week 4: Release open source (Epics 1-4 to GitHub)
+- YouTube Video 1 (open source) + Video 2 (Pro)
+
+### Phase 2: Premium Analytics (Weeks 5-7) 📋 PLANNED
+- Epic 9: Stories 9.1-9.4
+- Enhanced Pro tier value
+- Customer email updates
+- YouTube Video 3 (results/analytics)
+
+### Phase 3: Mac Edition (Weeks 8-10) 📋 FUTURE
+- Epic 8b: Port standalone to macOS
+- Same architecture as Windows
+- Expand market to Mac users
+
+### Phase 4: Refinement (Ongoing) 📋 FUTURE
+- Epic 5: System reliability improvements
+- Epic 6: Community infrastructure
+- Customer feedback implementation
+- Bug fixes and polish
+
+---
+
+## Success Metrics (Commercial Focus)
+
+### Commercial (Epic 8 + 9)
+- **Sales Target:** 50+ units in Q1 (£1,450+ revenue)
+- **Trial Conversion:** 20%+ trial to paid
+- **Customer Satisfaction:** 4.5+ star average
+- **Support Load:** <2 hours/week average
+
+### Open Source (Epics 1-4)
+- **GitHub Stars:** 100+ in first month
+- **Forks:** 20+ in first quarter
+- **Contributors:** 3+ external contributors
+- **Community:** Active discussions, low toxicity
+
+---
+
+_Epic Breakdown Document - Updated 2026-01-07 with Epic 8 (Standalone Windows) and Epic 9 (Premium Analytics)_

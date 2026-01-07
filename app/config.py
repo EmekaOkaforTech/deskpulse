@@ -319,3 +319,37 @@ class SystemdConfig(ProductionConfig):
     # For systemd deployment on Pi, bind to local network interface
     # Set to Pi's local IP or use environment variable for specific interface
     HOST = os.environ.get("FLASK_HOST") or "127.0.0.1"
+    # Production database path (enterprise-grade: /var/lib/deskpulse/)
+    DATABASE_PATH = "/var/lib/deskpulse/deskpulse.db"
+
+
+class StandaloneConfig(Config):
+    """Configuration for standalone Windows edition (Epic 8)."""
+
+    DEBUG = False
+    TESTING = False
+    LOG_LEVEL = "INFO"
+
+    # Windows paths (overridden by database_path parameter in create_app)
+    # These are defaults if no path provided
+    DATABASE_PATH = os.path.join(
+        os.environ.get('APPDATA', 'C:\\Users\\Default\\AppData\\Roaming'),
+        'DeskPulse',
+        'deskpulse.db'
+    )
+
+    # No web server needed (local only)
+    HOST = "127.0.0.1"
+    PORT = 5000  # Only for local dashboard access
+
+    # Windows camera defaults
+    CAMERA_DEVICE = 0  # Index 0 = default Windows camera
+    CAMERA_RESOLUTION = "640x480"  # Lower resolution for performance
+    CAMERA_FPS = 10
+
+    # Analytics (Pro features)
+    HISTORY_DAYS = 30  # Pro: 30 days vs 7 days free
+    ENABLE_EXPORTS = True  # Pro feature
+
+    # No SocketIO in standalone mode
+    SOCKETIO_ENABLED = False
