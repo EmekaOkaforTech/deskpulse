@@ -107,7 +107,7 @@ development_status:
   # Epic 8: Standalone Windows Edition (No Pi Required) - COMMERCIAL PRIMARY PRODUCT
   epic-8: in-progress  # CRITICAL: Main commercial product (90% of paid market), serves non-tech users
   8-1-windows-backend-port: done  # COMPLETE: 48/48 tests passing, 30-min stability test passed, all ACs met, Windows validated (Build 26200.7462)
-  8-2-mediapipe-tasks-api-migration: in-progress  # Migrate from legacy solutions API (0.10.21) to modern Tasks API (0.10.31), reduce package size by 80MB
+  8-2-mediapipe-tasks-api-migration: done  # ✅ COMPLETE: Tasks API migration (Pi: 0.10.18, Windows: 0.10.31), all tests passing, integration validated
   8-3-windows-camera-capture: ready-for-dev  # Core complete (DirectShow, detect_cameras, WindowsCamera) but MISSING: camera selection dialog, permission handling, Windows testing
   8-4-local-architecture-ipc: backlog  # Remove SocketIO dependency, implement local IPC with threading queues
   8-5-unified-system-tray-application: backlog  # Single .exe with backend + tray UI, backend in background thread, direct function calls
