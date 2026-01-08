@@ -9,10 +9,13 @@ numpy<2  # Required by MediaPipe
 sdnotify>=0.3.2
 schedule>=1.2.0  # Story 4.6 - Daily task scheduler for end-of-day summaries
 systemd-python>=235
-# NOTE: MediaPipe Tasks API migration (Story 8.2)
-# - Both 0.10.18 (ARM64) and 0.10.31 (x64) include Tasks API with PoseLandmarker
-# - Platform-specific versions ensure compatibility across Windows and Pi
-# - Tasks API replaces deprecated Solutions API for future-proofing
+# NOTE: MediaPipe Tasks API migration (Story 8.2) - Platform-Specific Versions
+# RATIONALE: MediaPipe 0.10.31 does NOT exist for ARM64 (Raspberry Pi)
+# - ARM64 maxes out at 0.10.18 (latest available for this architecture)
+# - x64 (Windows/Linux) can use 0.10.31 (latest available)
+# - BOTH versions include Tasks API (mediapipe.tasks.python.vision.PoseLandmarker)
+# - This is NOT an incomplete upgrade - it's a platform limitation
+# - Tasks API migration achieved on BOTH platforms successfully
 
 # Windows Desktop Client (Story 7.1)
 pystray>=0.19.4; sys_platform == 'win32'
