@@ -205,14 +205,64 @@ class Config:
     CAMERA_RESOLUTION = get_ini_value("camera", "resolution", "720p")
     CAMERA_FPS_TARGET = get_ini_int("camera", "fps_target", 10)
 
-    # MediaPipe Pose Configuration (Story 2.2)
-    MEDIAPIPE_MODEL_COMPLEXITY = get_ini_int("mediapipe", "model_complexity", 1)
+    # MediaPipe Pose Configuration (Story 2.2 + Story 8.2 Tasks API Migration)
+
+    @staticmethod
+    def _migrate_mediapipe_config() -> str:
+        """
+        Migrate legacy model_complexity (0/1/2) to new model_file setting (Story 8.2).
+
+        This provides backward compatibility for existing users upgrading from
+        MediaPipe Solutions API (0.10.21) to Tasks API (0.10.31/0.10.18).
+
+        Returns:
+            str: Model filename (e.g., 'pose_landmarker_full.task')
+        """
+        logger = logging.getLogger('deskpulse.config')
+
+        # Check if user has old config (model_complexity)
+        legacy_complexity = get_ini_int("mediapipe", "model_complexity", -1)
+
+        if legacy_complexity != -1 and legacy_complexity in (0, 1, 2):
+            # User has old config - auto-migrate
+            model_map = {
+                0: 'pose_landmarker_lite.task',   # Lite model (was complexity 0)
+                1: 'pose_landmarker_full.task',   # Full model (was complexity 1) - DEFAULT
+                2: 'pose_landmarker_heavy.task'   # Heavy model (was complexity 2)
+            }
+
+            model_file = model_map.get(legacy_complexity, 'pose_landmarker_full.task')
+
+            logger.info(
+                f"Auto-migrated legacy MediaPipe config: "
+                f"model_complexity={legacy_complexity} → model_file={model_file}"
+            )
+            logger.info(
+                f"Update your config file to use 'model_file = {model_file}' "
+                f"instead of 'model_complexity = {legacy_complexity}'"
+            )
+
+            return model_file
+        else:
+            # User has new config or first-time setup
+            model_file = get_ini_value(
+                "mediapipe", "model_file", "pose_landmarker_full.task"
+            )
+            return model_file
+
+    # MediaPipe model file (Story 8.2 - Tasks API)
+    MEDIAPIPE_MODEL_FILE = _migrate_mediapipe_config.__func__()
+
+    # Confidence thresholds (unchanged from Solutions API)
     MEDIAPIPE_MIN_DETECTION_CONFIDENCE = get_ini_float(
         "mediapipe", "min_detection_confidence", 0.5
     )
     MEDIAPIPE_MIN_TRACKING_CONFIDENCE = get_ini_float(
         "mediapipe", "min_tracking_confidence", 0.5
     )
+
+    # Legacy config kept for backward compatibility (deprecated)
+    MEDIAPIPE_MODEL_COMPLEXITY = get_ini_int("mediapipe", "model_complexity", 1)
     MEDIAPIPE_SMOOTH_LANDMARKS = get_ini_bool("mediapipe", "smooth_landmarks", True)
 
     # Posture Classification Configuration (Story 2.3)
@@ -286,6 +336,9 @@ class TestingConfig(Config):
     CAMERA_DEVICE = 0
     CAMERA_RESOLUTION = "720p"
     CAMERA_FPS_TARGET = 10
+    MEDIAPIPE_MODEL_FILE = "pose_landmarker_full.task"  # Story 8.2 - Tasks API
+    MEDIAPIPE_MIN_DETECTION_CONFIDENCE = 0.5
+    MEDIAPIPE_MIN_TRACKING_CONFIDENCE = 0.5
     POSTURE_ANGLE_THRESHOLD = 15  # Posture classification threshold (Story 2.3)
     ALERT_THRESHOLD = 600  # 10 minutes
     ALERT_COOLDOWN = 300  # 5 minutes (Story 3.1)

@@ -1,4 +1,7 @@
 # File: app/cv/classification.py
+# Story 2.3: Posture Classification
+# Story 8.2: MediaPipe Tasks API Migration - Landmark Access Pattern Update
+
 import logging
 import math
 from typing import Optional, Tuple, Any
@@ -28,15 +31,26 @@ class PostureClassifier:
     # Architecture constant: Good posture threshold (degrees from vertical)
     GOOD_POSTURE_ANGLE_THRESHOLD = 15
 
-    def __init__(self):
-        """Initialize PostureClassifier with config from Flask app."""
-        from flask import current_app
+    def __init__(self, app=None):
+        """
+        Initialize PostureClassifier with config from Flask app.
 
+        Args:
+            app: Flask application instance (Story 8.1: for background thread context)
+        """
         # Load configurable threshold from app config (Story 1.3 pattern)
-        self.angle_threshold = current_app.config.get(
-            'POSTURE_ANGLE_THRESHOLD',
-            self.GOOD_POSTURE_ANGLE_THRESHOLD
-        )
+        # Story 8.1: Use app.config when provided (avoids current_app in background thread)
+        if app:
+            self.angle_threshold = app.config.get(
+                'POSTURE_ANGLE_THRESHOLD',
+                self.GOOD_POSTURE_ANGLE_THRESHOLD
+            )
+        else:
+            from flask import current_app
+            self.angle_threshold = current_app.config.get(
+                'POSTURE_ANGLE_THRESHOLD',
+                self.GOOD_POSTURE_ANGLE_THRESHOLD
+            )
 
         # MediaPipe Pose solution for landmark constants
         if mp:
@@ -63,12 +77,13 @@ class PostureClassifier:
         4. Bad posture if EITHER angle exceeds threshold
 
         Args:
-            landmarks: MediaPipe NormalizedLandmarkList or None
+            landmarks: MediaPipe landmarks (list of NormalizedLandmark from Tasks API) or None
 
         Returns:
             str: 'good', 'bad', or None (if user absent)
 
-        Technical Notes:
+        Technical Notes (Story 8.2):
+        - Landmark access updated for Tasks API: landmarks[index.value]
         - Shoulder-hip angle: Detects forward lean (chest toward desk)
         - Nose-shoulder angle: Detects slouching (head/back rounded forward)
         - Combined approach catches both common bad posture types
@@ -93,27 +108,22 @@ class PostureClassifier:
             # Landmark 12: RIGHT_SHOULDER
             # Landmark 23: LEFT_HIP
             # Landmark 24: RIGHT_HIP
+
+            # Story 8.2: Tasks API returns landmarks as list (not protobuf)
+            # Access pattern changed from landmarks.landmark[enum] to landmarks[enum.value]
             if self.mp_pose:
-                nose = landmarks.landmark[self.mp_pose.PoseLandmark.NOSE]
-                left_shoulder = landmarks.landmark[
-                    self.mp_pose.PoseLandmark.LEFT_SHOULDER
-                ]
-                right_shoulder = landmarks.landmark[
-                    self.mp_pose.PoseLandmark.RIGHT_SHOULDER
-                ]
-                left_hip = landmarks.landmark[
-                    self.mp_pose.PoseLandmark.LEFT_HIP
-                ]
-                right_hip = landmarks.landmark[
-                    self.mp_pose.PoseLandmark.RIGHT_HIP
-                ]
+                nose = landmarks[self.mp_pose.PoseLandmark.NOSE.value]
+                left_shoulder = landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value]
+                right_shoulder = landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
+                left_hip = landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value]
+                right_hip = landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value]
             else:
-                # Fallback for tests with mock landmarks
-                nose = landmarks.landmark[0]
-                left_shoulder = landmarks.landmark[11]
-                right_shoulder = landmarks.landmark[12]
-                left_hip = landmarks.landmark[23]
-                right_hip = landmarks.landmark[24]
+                # Fallback for tests with mock landmarks (list access)
+                nose = landmarks[0]
+                left_shoulder = landmarks[11]
+                right_shoulder = landmarks[12]
+                left_hip = landmarks[23]
+                right_hip = landmarks[24]
 
             # Calculate midpoint of shoulders (normalized coordinates 0.0-1.0)
             shoulder_x = (left_shoulder.x + right_shoulder.x) / 2
