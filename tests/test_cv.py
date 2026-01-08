@@ -239,55 +239,58 @@ class TestCameraCapture:
 
 
 class TestPoseDetector:
-    """Test suite for PoseDetector class."""
+    """Test suite for PoseDetector class (Story 8.2: Tasks API)."""
 
-    @patch('app.cv.detection.mp')
-    def test_pose_detector_initialization(self, mock_mp, app):
-        """Test PoseDetector initialization with default config."""
+    @patch('app.cv.detection.vision')
+    @patch('pathlib.Path.exists')
+    def test_pose_detector_initialization(self, mock_exists, mock_vision, app):
+        """Test PoseDetector initialization with Tasks API."""
         with app.app_context():
-            mock_pose_class = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_class
+            # Mock model file exists
+            mock_exists.return_value = True
+
+            # Mock PoseLandmarker creation
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
 
             detector = PoseDetector()
 
-            assert detector.pose == mock_pose_class
-            assert detector.model_complexity == 1
+            assert detector.landmarker == mock_landmarker
+            assert detector.model_file == "pose_landmarker_full.task"
             assert detector.min_detection_confidence == 0.5
             assert detector.min_tracking_confidence == 0.5
-            # Verify exact parameters passed to Pose initialization
-            mock_mp.solutions.pose.Pose.assert_called_once_with(
-                static_image_mode=False,
-                model_complexity=1,
-                smooth_landmarks=True,
-                enable_segmentation=False,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5
-            )
+            assert detector.frame_counter == 0
+            # Verify create_from_options called
+            mock_vision.PoseLandmarker.create_from_options.assert_called_once()
 
-    @patch('app.cv.detection.mp')
+    @patch('pathlib.Path.exists')
+    @patch('app.cv.detection.vision')
     @patch('app.cv.detection.cv2')
-    def test_detect_landmarks_success(self, mock_cv2, mock_mp, app):
-        """Test successful landmark detection with user present."""
+    @patch('app.cv.detection.mp')
+    def test_detect_landmarks_success(self, mock_mp, mock_cv2, mock_vision, mock_exists, app):
+        """Test successful landmark detection with Tasks API."""
         with app.app_context():
-            # Setup mocks
-            mock_pose_instance = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_instance
-            mock_mp.solutions.pose.PoseLandmark.NOSE = 0
+            # Mock model file existence
+            # Mock model file exists
+            mock_exists.return_value = True
 
-            # Mock successful detection
-            mock_landmarks = MagicMock()
-            mock_nose = MagicMock()
+            # Mock PoseLandmarker
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
+
+            # Mock successful detection (Tasks API returns list)
+            mock_nose = Mock()
             mock_nose.visibility = 0.87
-            mock_landmarks.landmark = [mock_nose]
+            mock_landmarks = [mock_nose] + [Mock() for _ in range(32)]  # 33 landmarks total
 
             mock_results = Mock()
-            mock_results.pose_landmarks = mock_landmarks
-            mock_pose_instance.process.return_value = mock_results
+            mock_results.pose_landmarks = [mock_landmarks]  # List of poses
+            mock_landmarker.detect_for_video.return_value = mock_results
 
             # Mock BGR to RGB conversion
             mock_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
             mock_cv2.cvtColor.return_value = mock_frame
-            mock_cv2.COLOR_BGR2RGB = 4  # Mock constant
+            mock_cv2.COLOR_BGR2RGB = 4
 
             detector = PoseDetector()
             result = detector.detect_landmarks(mock_frame)
@@ -296,19 +299,26 @@ class TestPoseDetector:
             assert result['landmarks'] is not None
             assert result['confidence'] == 0.87
             mock_cv2.cvtColor.assert_called_once()
+            mock_landmarker.detect_for_video.assert_called_once()
 
-    @patch('app.cv.detection.mp')
+    @patch('pathlib.Path.exists')
+    @patch('app.cv.detection.vision')
     @patch('app.cv.detection.cv2')
-    def test_detect_landmarks_no_person(self, mock_cv2, mock_mp, app):
-        """Test landmark detection when user is absent."""
+    @patch('app.cv.detection.mp')
+    def test_detect_landmarks_no_person(self, mock_mp, mock_cv2, mock_vision, mock_exists, app):
+        """Test landmark detection when user is absent (Tasks API)."""
         with app.app_context():
-            mock_pose_instance = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_instance
+            # Mock model file existence
+            # Mock model file exists
+            mock_exists.return_value = True
 
-            # Mock no detection (user away)
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
+
+            # Mock no detection (empty list = no person)
             mock_results = Mock()
-            mock_results.pose_landmarks = None
-            mock_pose_instance.process.return_value = mock_results
+            mock_results.pose_landmarks = []  # Empty list
+            mock_landmarker.detect_for_video.return_value = mock_results
 
             mock_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
             mock_cv2.cvtColor.return_value = mock_frame
@@ -321,13 +331,18 @@ class TestPoseDetector:
             assert result['landmarks'] is None
             assert result['confidence'] == 0.0
 
-    @patch('app.cv.detection.mp')
+    @patch('pathlib.Path.exists')
+    @patch('app.cv.detection.vision')
     @patch('app.cv.detection.cv2')
-    def test_detect_landmarks_none_frame(self, mock_cv2, mock_mp, app):
+    def test_detect_landmarks_none_frame(self, mock_cv2, mock_vision, mock_exists, app):
         """Test landmark detection with None frame."""
         with app.app_context():
-            mock_pose_instance = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_instance
+            # Mock model file existence
+            # Mock model file exists
+            mock_exists.return_value = True
+
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
 
             detector = PoseDetector()
             result = detector.detect_landmarks(None)
@@ -337,30 +352,50 @@ class TestPoseDetector:
             assert result['confidence'] == 0.0
             mock_cv2.cvtColor.assert_not_called()
 
+    @patch('pathlib.Path.exists')
+    @patch('app.cv.detection.vision')
     @patch('app.cv.detection.mp')
-    def test_draw_landmarks_success(self, mock_mp, app):
-        """Test drawing landmarks on frame."""
+    def test_draw_landmarks_success(self, mock_mp, mock_vision, mock_exists, app):
+        """Test drawing landmarks on frame (Tasks API)."""
         with app.app_context():
-            mock_pose_instance = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_instance
+            # Mock model file existence
+            # Mock model file exists
+            mock_exists.return_value = True
+
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
             mock_mp.solutions.drawing_utils = Mock()
 
             detector = PoseDetector()
 
             mock_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-            mock_landmarks = Mock()
+
+            # Mock landmarks as list (Tasks API format)
+            mock_landmark = Mock()
+            mock_landmark.x = 0.5
+            mock_landmark.y = 0.3
+            mock_landmark.z = -0.1
+            mock_landmark.visibility = 0.95
+            mock_landmark.presence = 0.98
+            mock_landmarks = [mock_landmark for _ in range(33)]
 
             result_frame = detector.draw_landmarks(mock_frame, mock_landmarks)
 
             assert result_frame is not None
             mock_mp.solutions.drawing_utils.draw_landmarks.assert_called_once()
 
+    @patch('pathlib.Path.exists')
+    @patch('app.cv.detection.vision')
     @patch('app.cv.detection.mp')
-    def test_draw_landmarks_none_landmarks(self, mock_mp, app):
+    def test_draw_landmarks_none_landmarks(self, mock_mp, mock_vision, mock_exists, app):
         """Test drawing with None landmarks returns original frame."""
         with app.app_context():
-            mock_pose_instance = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_instance
+            # Mock model file existence
+            # Mock model file exists
+            mock_exists.return_value = True
+
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
             mock_mp.solutions.drawing_utils = Mock()
 
             detector = PoseDetector()
@@ -371,17 +406,22 @@ class TestPoseDetector:
             assert result_frame is mock_frame
             mock_mp.solutions.drawing_utils.draw_landmarks.assert_not_called()
 
-    @patch('app.cv.detection.mp')
-    def test_close_releases_resources(self, mock_mp, app):
-        """Test close() releases MediaPipe resources."""
+    @patch('pathlib.Path.exists')
+    @patch('app.cv.detection.vision')
+    def test_close_releases_resources(self, mock_vision, mock_exists, app):
+        """Test close() releases MediaPipe PoseLandmarker resources."""
         with app.app_context():
-            mock_pose_instance = Mock()
-            mock_mp.solutions.pose.Pose.return_value = mock_pose_instance
+            # Mock model file existence
+            # Mock model file exists
+            mock_exists.return_value = True
+
+            mock_landmarker = Mock()
+            mock_vision.PoseLandmarker.create_from_options.return_value = mock_landmarker
 
             detector = PoseDetector()
             detector.close()
 
-            mock_pose_instance.close.assert_called_once()
+            mock_landmarker.close.assert_called_once()
 
 
 class TestPostureClassifier:
