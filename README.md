@@ -4,7 +4,7 @@ Real-time posture monitoring for Raspberry Pi with local processing and zero clo
 
 ## Features
 
-- **Real-time Monitoring**: Uses MediaPipe Pose for accurate posture detection
+- **Real-time Monitoring**: Uses MediaPipe Tasks API for accurate posture detection (Story 8.2)
 - **Privacy-First**: All processing runs locally on your Raspberry Pi - no data leaves your device
 - **Smart Alerts**: Configurable thresholds with desktop and browser notifications
 - **Progress Tracking**: Historical data and trend analysis
@@ -27,7 +27,7 @@ curl -fsSL http://192.168.10.126:2221/Emeka/deskpulse/raw/branch/main/scripts/in
 - Checks system prerequisites (hardware, OS, Python 3.9+)
 - Installs system dependencies (v4l-utils, libnotify)
 - Clones repository and creates Python virtual environment
-- Downloads MediaPipe Pose models (~2.1GB)
+- Downloads MediaPipe Pose landmarker model files (~9MB .task files)
 - Configures systemd service with auto-start
 - Verifies installation with health check
 
@@ -302,11 +302,27 @@ resolution = 480p # Lower resolution helps
 
 ### MediaPipe Installation Failed
 
-MediaPipe requires special handling on ARM64:
+**Story 8.2:** DeskPulse now uses MediaPipe Tasks API with platform-specific versions:
 
+**Raspberry Pi (ARM64):**
 ```bash
 source venv/bin/activate
-pip install mediapipe==0.10.8 --no-cache-dir
+pip install mediapipe==0.10.18 --no-cache-dir
+```
+
+**Windows/Linux (x86_64):**
+```bash
+source venv/bin/activate
+pip install mediapipe==0.10.31 --no-cache-dir
+```
+
+**Model Files:**
+If model files are missing, download manually:
+```bash
+mkdir -p app/cv/models
+cd app/cv/models
+curl -L -o pose_landmarker_full.task \
+  https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task
 ```
 
 ## Documentation
@@ -350,7 +366,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 Built with:
 - Flask 3.0.0 - Web framework
-- MediaPipe - Pose detection
+- MediaPipe Tasks API (0.10.31/0.10.18) - Pose detection (Story 8.2)
 - OpenCV - Computer vision
 - SQLite - Database
 - systemd - Service management
