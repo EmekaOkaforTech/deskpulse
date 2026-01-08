@@ -2406,11 +2406,22 @@ def check_alert_threshold(event_data):
 - **Frequency:** Manual check via `/api/updates` or daily background task
 - **Response:** Parse `tag_name` for version comparison
 
-**MediaPipe Pose (Google):**
-- **Library:** `mediapipe` Python package
-- **Model:** Pre-trained Pose Landmarker (~2GB)
+**MediaPipe Pose (Google) - Story 8.2 Tasks API Migration:**
+- **Library:** `mediapipe` Python package (Tasks API, v0.10.31 x64 / v0.10.18 ARM64)
+- **Model:** Pre-trained BlazePose Pose Landmarker (.task files, ~9MB)
 - **License:** Apache 2.0
-- **Integration:** `app/cv/detection.py` imports `mediapipe.solutions.pose`
+- **API Version:** Tasks API (`mediapipe.tasks.python.vision.PoseLandmarker`)
+  - **Migration Date:** 2026-01-08 (Story 8.2)
+  - **Previous API:** Solutions API (`mediapipe.solutions.pose`) - deprecated March 2023
+  - **Breaking Change:** Landmark access pattern changed from protobuf to list format
+  - **Platform Versions:**
+    - x86_64/AMD64 (Windows/Linux): MediaPipe 0.10.31
+    - aarch64 (Raspberry Pi): MediaPipe 0.10.18 (0.10.31 not available for ARM64)
+  - **Model Files:** External `.task` files stored in `app/cv/models/` directory
+  - **Package Reduction:** 80MB smaller (jax/jaxlib/matplotlib removed)
+  - **Backward Compatibility:** Auto-migration for old `model_complexity` configs
+- **Integration:** `app/cv/detection.py` uses `vision.PoseLandmarker` with `detect_for_video()`
+- **Documentation:** See `/docs/baselines/migration-acceptance.md` and Story 8.2 artifacts
 
 **OpenCV (Camera Interface):**
 - **Library:** `opencv-python` package
