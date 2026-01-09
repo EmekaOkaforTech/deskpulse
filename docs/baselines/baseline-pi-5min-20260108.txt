@@ -1,0 +1,321 @@
+Error in cpuinfo: prctl(PR_SVE_GET_VL) failed
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1767906674.816057 2312371 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1767906674.999445 2312371 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+======================================================================
+PERFORMANCE BASELINE TEST - Raspberry Pi
+Story 8.2: MediaPipe Tasks API (0.10.18)
+======================================================================
+Duration: 300s (5 minutes)
+Started: 2026-01-08 21:11:05
+
+Importing dependencies...
+✅ Imports completed in 8.28s
+
+Creating Flask app...
+Initializing CV components...
+✅ CV components initialized in 0.62s
+
+Running performance test for 300s...
+Target: 10 FPS = 3000 frames
+
+Metrics captured every second:
+  - Memory (RSS): Resident Set Size
+  - CPU (%): Per-core average
+  - FPS: Frames processed per second
+
+[   1s] Memory:  238.3 MB | CPU:   9.7% | FPS:  3.63 | Frames:     4 | Crashes: 0
+[   2s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.56 | Frames:     8 | Crashes: 0
+[   3s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.57 | Frames:    12 | Crashes: 0
+[   4s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.48 | Frames:    16 | Crashes: 0
+[   5s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.45 | Frames:    20 | Crashes: 0
+[   6s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.35 | Frames:    23 | Crashes: 0
+[   7s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.29 | Frames:    26 | Crashes: 0
+[   8s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.25 | Frames:    29 | Crashes: 0
+[  10s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.23 | Frames:    33 | Crashes: 0
+[  11s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.21 | Frames:    36 | Crashes: 0
+[  12s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.15 | Frames:    39 | Crashes: 0
+[  13s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.15 | Frames:    43 | Crashes: 0
+[  14s] Memory:  239.9 MB | CPU:   0.0% | FPS:  3.17 | Frames:    47 | Crashes: 0
+[  16s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.18 | Frames:    51 | Crashes: 0
+[  17s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.18 | Frames:    55 | Crashes: 0
+[  18s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.19 | Frames:    59 | Crashes: 0
+[  19s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.15 | Frames:    62 | Crashes: 0
+[  20s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.16 | Frames:    66 | Crashes: 0
+[  22s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.17 | Frames:    70 | Crashes: 0
+[  23s] Memory:  240.0 MB | CPU:   9.8% | FPS:  3.18 | Frames:    74 | Crashes: 0
+[  24s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.18 | Frames:    78 | Crashes: 0
+[  25s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.18 | Frames:    82 | Crashes: 0
+[  27s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.18 | Frames:    86 | Crashes: 0
+[  28s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.17 | Frames:    89 | Crashes: 0
+[  29s] Memory:  240.0 MB | CPU:   0.0% | FPS:  3.15 | Frames:    92 | Crashes: 0
+[  30s] Memory:  240.8 MB | CPU:   9.4% | FPS:  3.15 | Frames:    96 | Crashes: 0
+[  31s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.15 | Frames:   100 | Crashes: 0
+[  32s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.17 | Frames:   104 | Crashes: 0
+[  34s] Memory:  240.8 MB | CPU:   9.5% | FPS:  3.17 | Frames:   108 | Crashes: 0
+[  35s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.18 | Frames:   112 | Crashes: 0
+[  36s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.18 | Frames:   116 | Crashes: 0
+[  37s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.19 | Frames:   120 | Crashes: 0
+[  38s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.20 | Frames:   124 | Crashes: 0
+[  39s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.20 | Frames:   128 | Crashes: 0
+[  41s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.20 | Frames:   132 | Crashes: 0
+[  42s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.19 | Frames:   135 | Crashes: 0
+[  43s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.19 | Frames:   139 | Crashes: 0
+[  44s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.19 | Frames:   143 | Crashes: 0
+[  45s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.20 | Frames:   147 | Crashes: 0
+[  47s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.21 | Frames:   151 | Crashes: 0
+[  48s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.21 | Frames:   155 | Crashes: 0
+[  49s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.21 | Frames:   158 | Crashes: 0
+[  50s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.21 | Frames:   162 | Crashes: 0
+[  51s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.21 | Frames:   166 | Crashes: 0
+[  52s] Memory:  240.8 MB | CPU:  10.0% | FPS:  3.22 | Frames:   170 | Crashes: 0
+[  53s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   174 | Crashes: 0
+[  55s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   178 | Crashes: 0
+[  56s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   182 | Crashes: 0
+[  57s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.22 | Frames:   186 | Crashes: 0
+[  58s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   190 | Crashes: 0
+[  60s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   194 | Crashes: 0
+[  61s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   198 | Crashes: 0
+[  62s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   201 | Crashes: 0
+[  63s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.22 | Frames:   204 | Crashes: 0
+[  64s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.22 | Frames:   208 | Crashes: 0
+[  65s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   212 | Crashes: 0
+[  66s] Memory:  240.8 MB | CPU:  10.0% | FPS:  3.22 | Frames:   215 | Crashes: 0
+[  67s] Memory:  240.8 MB | CPU:   0.0% | FPS:  3.23 | Frames:   219 | Crashes: 0
+[  68s] Memory:  240.9 MB | CPU:   0.0% | FPS:  3.22 | Frames:   222 | Crashes: 0
+[  70s] Memory:  240.9 MB | CPU:  10.0% | FPS:  3.22 | Frames:   226 | Crashes: 0
+[  71s] Memory:  240.9 MB | CPU:   0.0% | FPS:  3.22 | Frames:   230 | Crashes: 0
+[  72s] Memory:  240.9 MB | CPU:   0.0% | FPS:  3.22 | Frames:   233 | Crashes: 0
+[  73s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   236 | Crashes: 0
+[  74s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   239 | Crashes: 0
+[  75s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   243 | Crashes: 0
+[  76s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   247 | Crashes: 0
+[  77s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   251 | Crashes: 0
+[  79s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   255 | Crashes: 0
+[  80s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   258 | Crashes: 0
+[  81s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   261 | Crashes: 0
+[  82s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.21 | Frames:   264 | Crashes: 0
+[  83s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   268 | Crashes: 0
+[  84s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   272 | Crashes: 0
+[  85s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.22 | Frames:   276 | Crashes: 0
+[  86s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   280 | Crashes: 0
+[  88s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   284 | Crashes: 0
+[  89s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   288 | Crashes: 0
+[  90s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   291 | Crashes: 0
+[  91s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   295 | Crashes: 0
+[  92s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   299 | Crashes: 0
+[  94s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   303 | Crashes: 0
+[  95s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   307 | Crashes: 0
+[  96s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.23 | Frames:   311 | Crashes: 0
+[  97s] Memory:  241.0 MB | CPU:  10.0% | FPS:  3.23 | Frames:   315 | Crashes: 0
+[  98s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.22 | Frames:   318 | Crashes: 0
+[ 100s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   322 | Crashes: 0
+[ 101s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   326 | Crashes: 0
+[ 102s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   330 | Crashes: 0
+[ 103s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   334 | Crashes: 0
+[ 105s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   338 | Crashes: 0
+[ 106s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.22 | Frames:   342 | Crashes: 0
+[ 107s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.22 | Frames:   345 | Crashes: 0
+[ 108s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   348 | Crashes: 0
+[ 109s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   351 | Crashes: 0
+[ 110s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   355 | Crashes: 0
+[ 111s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   358 | Crashes: 0
+[ 112s] Memory:  241.0 MB | CPU:   9.6% | FPS:  3.20 | Frames:   362 | Crashes: 0
+[ 114s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   366 | Crashes: 0
+[ 115s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   370 | Crashes: 0
+[ 116s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   373 | Crashes: 0
+[ 117s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.19 | Frames:   376 | Crashes: 0
+[ 118s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.19 | Frames:   379 | Crashes: 0
+[ 119s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   383 | Crashes: 0
+[ 121s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   387 | Crashes: 0
+[ 122s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   391 | Crashes: 0
+[ 123s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   395 | Crashes: 0
+[ 124s] Memory:  241.0 MB | CPU:   9.2% | FPS:  3.20 | Frames:   399 | Crashes: 0
+[ 125s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   403 | Crashes: 0
+[ 126s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   406 | Crashes: 0
+[ 128s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   410 | Crashes: 0
+[ 129s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   413 | Crashes: 0
+[ 130s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   417 | Crashes: 0
+[ 131s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   421 | Crashes: 0
+[ 132s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   425 | Crashes: 0
+[ 133s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   429 | Crashes: 0
+[ 135s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   432 | Crashes: 0
+[ 136s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   436 | Crashes: 0
+[ 137s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   439 | Crashes: 0
+[ 138s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   443 | Crashes: 0
+[ 139s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   447 | Crashes: 0
+[ 140s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   451 | Crashes: 0
+[ 141s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   455 | Crashes: 0
+[ 143s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   458 | Crashes: 0
+[ 144s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   462 | Crashes: 0
+[ 145s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   466 | Crashes: 0
+[ 146s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   469 | Crashes: 0
+[ 147s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   472 | Crashes: 0
+[ 148s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   475 | Crashes: 0
+[ 149s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   479 | Crashes: 0
+[ 151s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   483 | Crashes: 0
+[ 152s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   487 | Crashes: 0
+[ 153s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   491 | Crashes: 0
+[ 154s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.20 | Frames:   495 | Crashes: 0
+[ 155s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   498 | Crashes: 0
+[ 156s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   501 | Crashes: 0
+[ 157s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   505 | Crashes: 0
+[ 158s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   509 | Crashes: 0
+[ 159s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   513 | Crashes: 0
+[ 160s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   516 | Crashes: 0
+[ 162s] Memory:  241.0 MB | CPU:  10.0% | FPS:  3.21 | Frames:   520 | Crashes: 0
+[ 163s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   523 | Crashes: 0
+[ 164s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   527 | Crashes: 0
+[ 165s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   531 | Crashes: 0
+[ 166s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   535 | Crashes: 0
+[ 168s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   539 | Crashes: 0
+[ 169s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   543 | Crashes: 0
+[ 170s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   546 | Crashes: 0
+[ 171s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   549 | Crashes: 0
+[ 172s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   552 | Crashes: 0
+[ 173s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   555 | Crashes: 0
+[ 174s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   559 | Crashes: 0
+[ 175s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   563 | Crashes: 0
+[ 176s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   567 | Crashes: 0
+[ 177s] Memory:  241.0 MB | CPU:  10.0% | FPS:  3.21 | Frames:   571 | Crashes: 0
+[ 179s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   575 | Crashes: 0
+[ 180s] Memory:  241.0 MB | CPU:  10.0% | FPS:  3.21 | Frames:   578 | Crashes: 0
+[ 181s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   582 | Crashes: 0
+[ 182s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   585 | Crashes: 0
+[ 183s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   589 | Crashes: 0
+[ 184s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   593 | Crashes: 0
+[ 185s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   597 | Crashes: 0
+[ 187s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   601 | Crashes: 0
+[ 188s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   605 | Crashes: 0
+[ 189s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   609 | Crashes: 0
+[ 190s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   613 | Crashes: 0
+[ 192s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   617 | Crashes: 0
+[ 193s] Memory:  241.0 MB | CPU:   9.2% | FPS:  3.21 | Frames:   620 | Crashes: 0
+[ 194s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   624 | Crashes: 0
+[ 195s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.21 | Frames:   627 | Crashes: 0
+[ 196s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   630 | Crashes: 0
+[ 197s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   634 | Crashes: 0
+[ 198s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   638 | Crashes: 0
+[ 200s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   642 | Crashes: 0
+[ 201s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   645 | Crashes: 0
+[ 202s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   649 | Crashes: 0
+[ 203s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   653 | Crashes: 0
+[ 204s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   656 | Crashes: 0
+[ 205s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   660 | Crashes: 0
+[ 206s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   664 | Crashes: 0
+[ 208s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   668 | Crashes: 0
+[ 209s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   672 | Crashes: 0
+[ 210s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   675 | Crashes: 0
+[ 211s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   679 | Crashes: 0
+[ 212s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   683 | Crashes: 0
+[ 214s] Memory:  241.0 MB | CPU:   9.8% | FPS:  3.21 | Frames:   687 | Crashes: 0
+[ 215s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   691 | Crashes: 0
+[ 216s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   694 | Crashes: 0
+[ 217s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   697 | Crashes: 0
+[ 218s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   700 | Crashes: 0
+[ 219s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   704 | Crashes: 0
+[ 220s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   708 | Crashes: 0
+[ 222s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   712 | Crashes: 0
+[ 223s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   716 | Crashes: 0
+[ 224s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   720 | Crashes: 0
+[ 225s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   724 | Crashes: 0
+[ 226s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   727 | Crashes: 0
+[ 228s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.20 | Frames:   731 | Crashes: 0
+[ 229s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   735 | Crashes: 0
+[ 230s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   738 | Crashes: 0
+[ 231s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   742 | Crashes: 0
+[ 232s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   746 | Crashes: 0
+[ 233s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   749 | Crashes: 0
+[ 234s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   752 | Crashes: 0
+[ 236s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   756 | Crashes: 0
+[ 237s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   760 | Crashes: 0
+[ 238s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   764 | Crashes: 0
+[ 239s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   767 | Crashes: 0
+[ 240s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   771 | Crashes: 0
+[ 241s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   774 | Crashes: 0
+[ 243s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   778 | Crashes: 0
+[ 244s] Memory:  241.0 MB | CPU:   9.8% | FPS:  3.20 | Frames:   781 | Crashes: 0
+[ 245s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   785 | Crashes: 0
+[ 246s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   789 | Crashes: 0
+[ 247s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   792 | Crashes: 0
+[ 248s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   796 | Crashes: 0
+[ 250s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   800 | Crashes: 0
+[ 251s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   803 | Crashes: 0
+[ 252s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   806 | Crashes: 0
+[ 253s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.19 | Frames:   809 | Crashes: 0
+[ 254s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.19 | Frames:   813 | Crashes: 0
+[ 255s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.19 | Frames:   816 | Crashes: 0
+[ 256s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.19 | Frames:   820 | Crashes: 0
+[ 257s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   824 | Crashes: 0
+[ 259s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   828 | Crashes: 0
+[ 260s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   832 | Crashes: 0
+[ 261s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   835 | Crashes: 0
+[ 262s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   839 | Crashes: 0
+[ 263s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   843 | Crashes: 0
+[ 264s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   846 | Crashes: 0
+[ 265s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   850 | Crashes: 0
+[ 267s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   854 | Crashes: 0
+[ 268s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   857 | Crashes: 0
+[ 269s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   861 | Crashes: 0
+[ 270s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   865 | Crashes: 0
+[ 271s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   869 | Crashes: 0
+[ 272s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   873 | Crashes: 0
+[ 274s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   877 | Crashes: 0
+[ 275s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   881 | Crashes: 0
+[ 276s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   885 | Crashes: 0
+[ 277s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.20 | Frames:   889 | Crashes: 0
+[ 278s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.20 | Frames:   893 | Crashes: 0
+[ 279s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   897 | Crashes: 0
+[ 280s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   901 | Crashes: 0
+[ 281s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   904 | Crashes: 0
+[ 283s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   908 | Crashes: 0
+[ 284s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   912 | Crashes: 0
+[ 285s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   915 | Crashes: 0
+[ 286s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   919 | Crashes: 0
+[ 287s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   923 | Crashes: 0
+[ 288s] Memory:  241.0 MB | CPU:   9.9% | FPS:  3.21 | Frames:   927 | Crashes: 0
+[ 290s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   931 | Crashes: 0
+[ 291s] Memory:  241.0 MB | CPU:   9.4% | FPS:  3.21 | Frames:   935 | Crashes: 0
+[ 292s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   939 | Crashes: 0
+[ 293s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   942 | Crashes: 0
+[ 294s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   945 | Crashes: 0
+[ 295s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   948 | Crashes: 0
+[ 296s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   952 | Crashes: 0
+[ 298s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   956 | Crashes: 0
+[ 299s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   959 | Crashes: 0
+[ 300s] Memory:  241.0 MB | CPU:   0.0% | FPS:  3.21 | Frames:   962 | Crashes: 0
+
+======================================================================
+TEST RESULTS
+======================================================================
+Memory (RSS):
+  - Min:      238.3 MB
+  - Max:      241.0 MB
+  - Average:  240.9 MB
+  - Samples: 260
+
+CPU Usage:
+  - Min:       0.0%
+  - Max:      10.0%
+  - Average:   1.0%
+  - Samples: 260
+
+Frame Processing:
+  - Total frames:   962
+  - Total time:     300.2s
+  - Average FPS:    3.20
+  - Target FPS:     10.00
+  - Crashes/Errors: 0
+  - Avg frame time: 284.1ms
+
+Test Duration: 300.2s (target: 300s)
+Completed: 2026-01-08 21:16:15
+======================================================================
+
+VALIDATION:
+✅ PASS: 0 crashes
+⚠️  WARN: FPS 3.20 below target (10.0)
+✅ PASS: Memory stable (range: 2.7 MB)
+
+✅ BASELINE TEST PASSED
