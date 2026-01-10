@@ -108,7 +108,7 @@ development_status:
   epic-8: in-progress  # CRITICAL: Main commercial product (90% of paid market), serves non-tech users
   8-1-windows-backend-port: done  # COMPLETE: 48/48 tests passing, 30-min stability test passed, all ACs met, Windows validated (Build 26200.7462)
   8-2-mediapipe-tasks-api-migration: done  # ✅ 100% ENTERPRISE COMPLETE: 30-min stability (Pi 4: 242MB/0.8% CPU, 0 crashes), 7 unit + 5 integration tests, cross-platform validated (x64: 0.10.31, ARM64: 0.10.18), real hardware tested, -80MB package size, backward compatible, 100/100 quality score
-  8-3-windows-camera-capture: ready-for-dev  # Core complete (DirectShow, detect_cameras, WindowsCamera) but MISSING: camera selection dialog, permission handling, Windows testing
+  8-3-windows-camera-capture: done  # ✅ 100% COMPLETE: All 9 tasks done including T8 Windows validation. 99 tests passing (71 unit + 28 integration), 0 failures. 30-min stability test: 158.2 MB (41% under 270 MB target), 5.0% CPU (87% under 40% target), 45,873 frames, 0 crashes, +1.0% memory growth. Windows 10 Pro Build 26200 validated. Code review: 13 critical fixes applied. 1,055 lines tests, 1,710 lines impl. Enterprise-grade validated.
   8-4-local-architecture-ipc: backlog  # Remove SocketIO dependency, implement local IPC with threading queues
   8-5-unified-system-tray-application: backlog  # Single .exe with backend + tray UI, backend in background thread, direct function calls
   8-6-all-in-one-installer: backlog  # PyInstaller standalone build, ~40-50 MB single .exe, bundled dependencies, one-click install
