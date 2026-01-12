@@ -1,0 +1,11 @@
+{
+  "camera": {
+    "index": 2,
+    "fps": 15,
+    "width": 1280,
+    "height": 720
+  },
+  "monitoring": {
+    "alert_threshold_seconds": 300
+  }
+}

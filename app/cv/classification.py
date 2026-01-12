@@ -53,8 +53,14 @@ class PostureClassifier:
             )
 
         # MediaPipe Pose solution for landmark constants
+        # Try to load from Solutions API, fallback to hardcoded indices
         if mp:
-            self.mp_pose = mp.solutions.pose
+            try:
+                self.mp_pose = mp.solutions.pose
+            except (AttributeError, ImportError):
+                # Solutions API not available in Tasks API bundle - use hardcoded indices
+                self.mp_pose = None
+                logger.warning("MediaPipe Solutions API not available - using hardcoded landmark indices")
         else:
             # Mock for tests - landmark indices hardcoded
             self.mp_pose = None
