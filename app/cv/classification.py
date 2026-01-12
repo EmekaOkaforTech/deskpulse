@@ -108,6 +108,12 @@ class PostureClassifier:
             return None  # User absent, no classification possible
 
         try:
+            # Handle both old protobuf format (landmarks.landmark) and new list format
+            # Tasks API should return list directly, but handle protobuf for compatibility
+            if hasattr(landmarks, 'landmark'):
+                # Old Solutions API format: NormalizedLandmarkList protobuf
+                landmarks = landmarks.landmark
+
             # Extract key landmarks using MediaPipe indices
             # Landmark 0: NOSE
             # Landmark 11: LEFT_SHOULDER
