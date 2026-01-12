@@ -228,10 +228,11 @@ class PoseDetector:
         # Check if pose detected (user present in frame)
         if results.pose_landmarks and len(results.pose_landmarks) > 0:
             # Extract first person's landmarks (num_poses=1)
+            # Tasks API returns NormalizedLandmarkList, which is directly indexable
             landmarks = results.pose_landmarks[0]
 
             # Extract confidence score from nose landmark (most stable landmark)
-            # Landmark structure changed: landmarks is a list of NormalizedLandmark objects
+            # Landmark structure: landmarks is directly indexable list of NormalizedLandmark objects
             nose_landmark = landmarks[0]  # Index 0 = NOSE (same as legacy API)
             confidence = nose_landmark.visibility
 
