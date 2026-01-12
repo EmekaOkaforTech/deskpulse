@@ -2701,6 +2701,701 @@ WantedBy=multi-user.target
 
 ---
 
+### Standalone Windows IPC Architecture (Epic 8)
+
+**Context:** Windows Standalone Edition (Epic 8) requires local IPC to replace SocketIO, enabling single-user desktop operation without network dependencies.
+
+#### IPC Architecture Overview
+
+**Problem:** SocketIO adds 200ms+ latency (network + serialization + browser processing) and requires network stack for single-user desktop app.
+
+**Solution:** In-process IPC using **callback pattern + priority event queue** for sub-millisecond alert delivery.
+
+**Performance:**
+- Alert latency: **0.16ms avg** (1220x faster than SocketIO 200ms baseline)
+- Memory overhead: **<25KB** (callbacks + queue + cache)
+- Thread-safe: RLock-based synchronization with timeout
+
+**Mode Selection:**
+```python
+# Pi + Web Dashboard: SocketIO mode (multi-client)
+if not standalone_mode:
+    socketio.init_app(app)  # Network SocketIO
+
+# Windows Standalone: Local IPC mode (single-user)
+if standalone_mode:
+    backend = BackendThread(config, event_queue=priority_queue)
+    tray_app = TrayApp(backend, event_queue)
+```
+
+#### Component Architecture
+
+**1. Backend Thread (`app/standalone/backend_thread.py`)**
+
+Responsibilities:
+- Run Flask app in background daemon thread
+- Manage CV pipeline and alert manager
+- Produce IPC events (callback invocation + queue insertion)
+- Expose thread-safe control methods
+
+```python
+class BackendThread:
+    def __init__(self, config: dict, event_queue: Optional[queue.PriorityQueue]):
+        # Callback system (Story 8.4 Task 2)
+        self._callbacks = defaultdict(list)
+        self._callback_lock = threading.Lock()
+
+        # Priority event queue (Story 8.4 Task 3)
+        self._event_queue = event_queue
+        self._events_produced = 0
+        self._events_dropped = 0
+
+        # Thread-safe shared state (Story 8.4 Task 5)
+        self.shared_state = SharedState()
+
+    def register_callback(self, event_type: str, callback: Callable):
+        """Register callback for event type (thread-safe)."""
+
+    def _notify_callbacks(self, event_type: str, **kwargs):
+        """Notify all registered callbacks + enqueue to priority queue."""
+```
+
+**2. Tray App (`app/standalone/tray_app.py`)**
+
+Responsibilities:
+- System tray UI (icon, menu, notifications)
+- Event queue consumer thread
+- Toast notification delivery
+- Latency tracking (p95 calculation)
+
+```python
+class TrayApp:
+    def __init__(self, backend_thread, event_queue: queue.PriorityQueue):
+        self.backend = backend_thread
+        self.event_queue = event_queue
+        self._latency_samples = []  # Last 100 for p95
+
+    def _event_consumer_loop(self):
+        """Consumer thread: dequeue events, measure latency, handle."""
+        while self.running:
+            priority, enqueue_time, event_type, data = self.event_queue.get(timeout=0.1)
+
+            # Calculate latency (perf_counter)
+            dequeue_time = time.perf_counter()
+            latency_ms = (dequeue_time - enqueue_time) * 1000
+
+            # Handle event
+            self._handle_event(event_type, data, latency_ms)
+```
+
+**3. Shared State (`app/standalone/backend_thread.py:SharedState`)**
+
+Responsibilities:
+- Thread-safe state storage (monitoring_active, alert_active, alert_duration)
+- Statistics caching (60-second TTL)
+- Lock-based synchronization with timeout
+
+```python
+class SharedState:
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._lock_timeout = 5.0  # Deadlock prevention
+
+        # State fields
+        self._monitoring_active = True
+        self._alert_active = False
+        self._alert_duration = 0
+
+        # Statistics cache (60s TTL)
+        self._cached_stats = None
+        self._cache_timestamp = 0.0
+        self._cache_ttl = 60.0
+
+    def get_monitoring_status(self) -> dict:
+        """Thread-safe state read (returns copy, not reference)."""
+
+    def update_monitoring_active(self, active: bool) -> dict:
+        """Thread-safe state mutation (invalidates stats cache)."""
+```
+
+#### Event System
+
+**Event Types (12 total):**
+
+| Event Type | Priority | Source | Description |
+|------------|----------|--------|-------------|
+| `alert` | CRITICAL (1) | AlertManager | Bad posture threshold exceeded |
+| `error` | CRITICAL (1) | Any component | Critical errors (camera disconnect, etc.) |
+| `status_change` | HIGH (2) | Backend | Monitoring paused/resumed |
+| `camera_state` | HIGH (2) | CV Pipeline | Camera connected/disconnected |
+| `correction` | NORMAL (3) | AlertManager | Good posture restored |
+| `posture_update` | LOW (4) | CV Pipeline | Real-time posture stream (10 FPS) |
+
+**Priority Constants:**
+```python
+PRIORITY_CRITICAL = 1  # Block up to 1s if queue full
+PRIORITY_HIGH = 2      # Block up to 0.5s if queue full
+PRIORITY_NORMAL = 3    # Block up to 0.5s if queue full
+PRIORITY_LOW = 4       # Non-blocking, drop immediately if queue full
+```
+
+**Event Structure:**
+```python
+event = (
+    priority,             # int (1-4)
+    time.perf_counter(),  # float (enqueue timestamp for latency tracking)
+    event_type,           # str ('alert', 'correction', etc.)
+    data                  # dict (event-specific payload)
+)
+```
+
+#### Callback Registration System
+
+**Registration API:**
+
+```python
+# Register callback
+backend.register_callback('alert', on_alert_callback)
+
+# Unregister callback
+backend.unregister_callback('alert', on_alert_callback)
+
+# Unregister all callbacks for event type
+backend.unregister_all_callbacks('alert')
+```
+
+**Callback Signature:**
+```python
+def on_alert_callback(duration: int, timestamp: str, **kwargs) -> None:
+    """
+    Alert callback.
+
+    Args:
+        duration: Bad posture duration in seconds
+        timestamp: ISO 8601 timestamp
+        **kwargs: Future extensibility
+    """
+    pass
+```
+
+**Exception Isolation:**
+- Each callback wrapped in `try-except`
+- Callback exceptions logged but never crash backend
+- Remaining callbacks execute even if one fails
+
+#### Priority Event Queue
+
+**Queue Configuration:**
+```python
+event_queue = queue.PriorityQueue(maxsize=100)
+backend = BackendThread(config, event_queue=event_queue)
+tray_app = TrayApp(backend, event_queue)
+```
+
+**Queue Full Handling (Priority-Based):**
+
+| Priority | Queue Full Behavior | Timeout | Use Case |
+|----------|---------------------|---------|----------|
+| CRITICAL | Block + timeout | 1.0s | Alerts, errors (never drop) |
+| HIGH | Block + timeout | 0.5s | Status changes |
+| NORMAL | Block + timeout | 0.5s | Corrections |
+| LOW | Non-blocking drop | None | Posture updates (lossy stream OK) |
+
+**Metrics Tracking:**
+```python
+metrics = backend.get_queue_metrics()
+# {
+#     'events_produced': 150,
+#     'events_dropped': 5,
+#     'drop_rate_percent': 3.3,
+#     'queue_size': 12
+# }
+```
+
+#### Thread Safety Guarantees
+
+**Locks:**
+- `_callback_lock` (threading.Lock): Protects callback registry during registration/invocation
+- `_queue_metrics_lock` (threading.Lock): Protects event counters (produced/dropped)
+- `SharedState._lock` (threading.RLock): Protects shared state + statistics cache
+
+**CPython GIL:**
+- Dictionary reads/writes are atomic (CPython implementation detail)
+- Locks used for composite operations (read-modify-write)
+- No explicit locks needed for single-instruction operations
+
+**Timeout Mechanism:**
+```python
+acquired = self._lock.acquire(timeout=5.0)
+if not acquired:
+    logger.warning("Lock acquisition timeout (potential deadlock)")
+    return safe_defaults
+```
+
+#### Performance Characteristics
+
+**Latency (Validated):**
+
+| Metric | Target | Actual | Result |
+|--------|--------|--------|--------|
+| Single alert p95 | <50ms | 0.42ms | ✅ 119x better |
+| Stress test max (100 alerts/10s) | <100ms | 7.94ms | ✅ 12.6x better |
+| SocketIO improvement | 4x faster | 1220x faster | ✅ 305x better |
+
+**Memory Overhead:**
+- Callback registry: ~5KB (defaultdict + function references)
+- Event queue: ~15KB (100 events × 150 bytes/event)
+- Shared state: ~2KB (state fields + cache)
+- Latency samples: ~1KB (100 floats)
+- **Total: <25KB**
+
+**Throughput:**
+- Sustained: 1000 events/sec (tested)
+- Real-world: ~0.01 events/sec (1 alert per 10 minutes)
+- Headroom: 100,000x
+
+#### Data Flow (Alert Example)
+
+```
+1. CV Pipeline detects bad posture (10+ minutes)
+   ↓
+2. AlertManager.check_for_alerts() returns alert_result
+   ↓
+3. CVPipeline calls backend_thread._notify_callbacks('alert', duration=600, ...)
+   ↓
+4. BackendThread._notify_callbacks():
+   a. Enqueue to priority queue (CRITICAL priority, perf_counter timestamp)
+   b. Invoke registered callbacks (exception-isolated)
+   ↓
+5. TrayApp consumer thread:
+   a. Dequeue event from priority queue
+   b. Calculate latency: dequeue_time - enqueue_time
+   c. _handle_alert(data, latency_ms)
+   ↓
+6. TrayApp._handle_alert():
+   a. Update tray icon state (alert_active = True)
+   b. Show toast notification (winotify)
+   c. Log latency warning if >50ms
+```
+
+**End-to-end latency:** 0.16ms avg (measured)
+
+#### Comparison: SocketIO vs Local IPC
+
+| Aspect | SocketIO Mode (Pi + Web) | Local IPC Mode (Windows Standalone) |
+|--------|--------------------------|-------------------------------------|
+| **Use Case** | Multi-client web dashboard | Single-user desktop app |
+| **Communication** | Network (WebSocket) | In-process (callbacks + queue) |
+| **Latency** | ~200ms (network + browser) | **0.16ms** (1220x faster) |
+| **Memory** | ~15MB (SocketIO server) | **<25KB** (callbacks + queue) |
+| **Dependencies** | Flask-SocketIO, python-socketio | queue (stdlib) |
+| **Clients** | 10+ simultaneous | 1 (TrayApp consumer) |
+| **Serialization** | JSON (socketio.emit) | Direct Python objects |
+| **Fault Tolerance** | Network reconnection | None needed (same process) |
+
+**When to use each:**
+- **SocketIO:** Raspberry Pi + remote web dashboard (FR35-FR45: multi-device viewing)
+- **Local IPC:** Windows Standalone Edition (FR-WIN1-WIN5: desktop app, no network)
+
+#### SocketIO Conditional (Dual-Mode Support)
+
+**Flask App Factory (`app/__init__.py`):**
+```python
+def create_app(config_name='development', standalone_mode=False):
+    app = Flask(__name__)
+
+    # Initialize extensions
+    if not standalone_mode:
+        # Pi mode: Initialize SocketIO for web dashboard
+        socketio.init_app(app)
+        from app.main import events  # Import SocketIO event handlers
+        logger.info("SocketIO initialized (multi-client mode)")
+    else:
+        # Windows standalone mode: Skip SocketIO
+        logger.info("SocketIO skipped (standalone IPC mode)")
+
+    return app
+```
+
+**Requirements:**
+- `requirements.txt` (Pi): Includes Flask-SocketIO
+- `requirements-windows.txt` (Windows): Excludes Flask-SocketIO
+
+**CV Pipeline Conditional (`app/cv/pipeline.py`):**
+```python
+# Notification delivery
+if self.backend_thread:
+    # Standalone mode: Local IPC callbacks
+    self.backend_thread._notify_callbacks('alert', duration=duration, ...)
+else:
+    # Pi mode: SocketIO emit
+    socketio.emit('alert_triggered', {...})
+```
+
+#### Testing Strategy
+
+**Unit Tests (70 tests):**
+- Callback registration/unregistration (20 tests)
+- Priority queue behavior (17 tests)
+- Integration with real backend (15 tests)
+- Thread safety stress tests (11 tests)
+- Latency validation (7 tests)
+
+**Stress Tests:**
+- 10 threads × 1000 concurrent reads (no corruption)
+- 5 threads × 100 state mutations (no race conditions)
+- 1000 events/sec for 10 seconds (no drops)
+- Lock contention: avg <1ms, max <10ms
+
+**Latency Validation:**
+- Single alert: p95 0.42ms (<50ms target)
+- 100 alerts/10s: max 7.94ms (<100ms target)
+- SocketIO comparison: 1220x faster (>4x target)
+
+**Test Files:**
+- `tests/test_callback_system.py`
+- `tests/test_priority_event_queue.py`
+- `tests/test_local_ipc_integration.py`
+- `tests/test_thread_safety_stress.py`
+- `tests/test_alert_latency_validation.py`
+
+#### Future Enhancements (Optional)
+
+**Performance:**
+- Increase queue size to 200 for extra headroom
+- Add latency dashboard (p95/p99 trends over time)
+- Tune statistics cache TTL based on usage patterns
+
+**Features:**
+- Remote control API (pause/resume via HTTP for automation)
+- Event logging to file for debugging
+- Metrics export for monitoring tools (Prometheus)
+
+**Monitoring:**
+- Latency alerts if p95 exceeds 50ms
+- Queue drop rate alerts if >5%
+- Cache hit rate tracking (log every 5 minutes)
+
+---
+
+### Unified Standalone Application (Story 8.5)
+
+**Context:** Story 8.5 completes the Windows Standalone Edition by creating a single executable that orchestrates backend thread, tray UI, and IPC glue code.
+
+#### Application Architecture
+
+**Single Process, Three Threads:**
+```
+Windows PC - Single Process (DeskPulse.exe)
+
+Main Thread (__main__.py):
+├─ 1. Setup logging → %APPDATA%/DeskPulse/logs
+├─ 2. Single instance check (Windows mutex: Global\DeskPulse)
+├─ 3. Load configuration → %APPDATA%/DeskPulse/config.json
+├─ 4. Create event queue (PriorityQueue maxsize=150)
+├─ 5. Start backend thread (daemon)
+├─ 6. Register callbacks (glue code)
+├─ 7. Start tray app → pystray.Icon.run() BLOCKS
+└─ 8. Cleanup on exit (<2s shutdown)
+
+Backend Thread (daemon):
+├─ Flask app (no SocketIO)
+├─ CV pipeline → _notify_callbacks('alert', ...)
+├─ Alert manager → shared state
+└─ Callback execution → queue.put(...)
+
+Consumer Thread (daemon, owned by TrayApp):
+├─ Event queue consumer (100ms timeout)
+├─ Toast notifications
+├─ Tray icon updates
+└─ Menu interactions
+```
+
+#### Main Entry Point (`app/standalone/__main__.py`)
+
+**Responsibilities:**
+- Orchestrate entire application lifecycle
+- Single instance enforcement via Windows mutex
+- Configuration management with error recovery
+- Callback registration (glue between backend and tray)
+- Graceful shutdown coordination
+- User-friendly error messaging
+
+**Key Functions:**
+```python
+def setup_logging():
+    """Configure logging to %APPDATA%/DeskPulse/logs/deskpulse.log"""
+    # Rotating file handler: 10 MB, 5 backups
+    # Console handler: INFO level
+
+def check_single_instance() -> Optional[int]:
+    """Windows mutex check - prevents duplicate launches"""
+    mutex = win32event.CreateMutex(None, False, 'Global\\DeskPulse')
+    if win32api.GetLastError() == winerror.ERROR_ALREADY_EXISTS:
+        # Show MessageBox and return None
+        return None
+    return mutex
+
+def load_and_validate_config() -> dict:
+    """Load config from %APPDATA%, handle corrupt/missing files"""
+    # Validates critical fields (camera, monitoring)
+    # Adds IPC section if missing
+    # Falls back to DEFAULT_CONFIG on errors
+
+def register_callbacks(backend, event_queue):
+    """CRITICAL glue code connecting backend events to queue"""
+    # 5 callbacks: alert, correction, status_change, camera_state, error
+    # Each callback: backend thread → queue.put() with priority
+    # Timeouts: CRITICAL=1s, HIGH/NORMAL=0.5s
+```
+
+**Initialization Sequence:**
+```python
+def main():
+    # 1. Setup logging
+    setup_logging()
+
+    # 2. Single instance check
+    mutex = check_single_instance()
+    if mutex is None:
+        sys.exit(0)  # Already running
+
+    # 3. Load configuration
+    config = load_and_validate_config()
+
+    # 4. Create event queue
+    queue_size = config['ipc']['event_queue_size']  # 150
+    event_queue = queue.PriorityQueue(maxsize=queue_size)
+
+    # 5. Initialize backend
+    backend = BackendThread(config, event_queue=event_queue)
+    backend.start()
+    time.sleep(2)  # Wait for Flask app initialization
+
+    # 6. Register callbacks (GLUE CODE)
+    register_callbacks(backend, event_queue)
+
+    # 7. Initialize and start tray app (BLOCKING)
+    tray_app = TrayApp(backend, event_queue)
+    tray_app.start()  # Blocks until user quits
+
+    # 8. Graceful shutdown (<2s)
+    finally:
+        tray_app.stop()
+        backend.stop()
+```
+
+#### Callback Registration (Glue Code)
+
+**Critical Integration Point:**
+```python
+def register_callbacks(backend: BackendThread, event_queue: queue.PriorityQueue):
+    """Connect backend events to tray queue"""
+
+    def on_alert_callback(duration: int, timestamp: str):
+        event_queue.put((
+            PRIORITY_CRITICAL,      # Priority 1
+            time.perf_counter(),    # Enqueue timestamp for latency tracking
+            'alert',
+            {'duration': duration, 'timestamp': timestamp}
+        ), timeout=1.0)  # Block up to 1s (CRITICAL never dropped)
+
+    def on_correction_callback(previous_duration: int, timestamp: str):
+        event_queue.put((
+            PRIORITY_NORMAL,        # Priority 3
+            time.perf_counter(),
+            'correction',
+            {'previous_duration': previous_duration, 'timestamp': timestamp}
+        ), timeout=0.5)
+
+    # Similar for: status_change (HIGH), camera_state (HIGH), error (CRITICAL)
+
+    backend.register_callback('alert', on_alert_callback)
+    backend.register_callback('correction', on_correction_callback)
+    backend.register_callback('status_change', on_status_change_callback)
+    backend.register_callback('camera_state', on_camera_state_callback)
+    backend.register_callback('error', on_error_callback)
+```
+
+**Why This is Critical:**
+- Backend produces events in backend thread via `_notify_callbacks()`
+- Callbacks execute in backend thread (must be lightweight <5ms)
+- Queue acts as thread-safe buffer between producer and consumer
+- Without this glue, backend events never reach tray app
+
+#### Tray App Enhancements (Story 8.5)
+
+**New Menus:**
+```python
+menu = pystray.Menu(
+    pystray.MenuItem("Pause/Resume Monitoring", _toggle_monitoring),
+    pystray.Menu.SEPARATOR,
+    pystray.MenuItem("Today's Stats", _show_stats),
+    pystray.Menu.SEPARATOR,
+    pystray.MenuItem("Settings", _show_settings),      # NEW
+    pystray.MenuItem("About", _show_about),            # NEW
+    pystray.Menu.SEPARATOR,
+    pystray.MenuItem("Quit DeskPulse", _quit_app)
+)
+```
+
+**Settings Menu:**
+- Shows config file path: `%APPDATA%/DeskPulse/config.json`
+- Instructions to edit and restart
+- MessageBox with ICONINFORMATION
+
+**About Menu:**
+- Version: 2.0.0
+- Platform info (Windows version, Python version)
+- GitHub link: github.com/EmekaOkaforTech/deskpulse
+- License: MIT
+
+#### Graceful Shutdown Sequence
+
+**Target: <2 seconds total**
+```python
+# 1. Tray app shutdown (0-1s)
+tray_app.stop()
+  → Set shutdown_event
+  → Wait 0.5s for queue drain
+  → Join consumer thread (5s timeout)
+  → Stop pystray icon
+
+# 2. Backend shutdown (1-2s)
+backend.stop()
+  → Unregister all callbacks
+  → Execute WAL checkpoint (persist DB changes)
+  → Join backend thread (10s timeout)
+
+# 3. Flush logs (<0.1s)
+for handler in logging.root.handlers:
+    handler.flush()
+```
+
+#### Configuration Updates (Story 8.5)
+
+**IPC Section Added to DEFAULT_CONFIG:**
+```python
+'ipc': {
+    'event_queue_size': 150,              # 10 FPS × 10s × 1.5 safety margin
+    'alert_latency_target_ms': 50,        # IPC latency target
+    'metrics_log_interval_seconds': 60    # Queue metrics logging
+}
+```
+
+#### Testing Strategy (Story 8.5)
+
+**Unit Tests (`tests/test_standalone_main.py` - ~200 lines):**
+- Single instance check (Windows mutex creation and release)
+- Config loading (valid, corrupt, missing files)
+- Event queue creation with correct maxsize
+- Callback registration (all 5 callbacks)
+- Callback priority behavior (CRITICAL vs NORMAL)
+- Graceful shutdown timing (<2s)
+- Exception handling (backend init failures)
+
+**Integration Tests (`tests/test_standalone_full_integration.py` - ~400 lines):**
+- **ENTERPRISE: Real backend components (no mocks except camera)**
+- Real Flask app via `create_app(standalone_mode=True)`
+- Real SQLite database with WAL mode
+- Real alert manager
+- Real priority event queue
+- Real callback registration system
+- Alert flow end-to-end: bad posture → backend → queue → dequeue
+- Control flow end-to-end: pause → backend → state change → callback
+- Shutdown sequence validation
+- Performance regression tests vs Story 8.4 baselines
+
+**Performance Targets:**
+| Metric | Story 8.4 Baseline | Story 8.5 Target | Validation Method |
+|--------|-------------------|------------------|-------------------|
+| Memory | <255 MB | <255 MB (no regression) | Task Manager |
+| CPU | <35% avg | <35% avg (no regression) | Performance Monitor |
+| Alert Latency (IPC) | 0.42ms p95 | <50ms (119x margin) | Timestamp delta |
+| Alert Latency (Total) | ~50ms | <100ms (IPC + toast) | End-to-end timing |
+| Startup Time | N/A | <3s (launch to monitoring) | Stopwatch |
+| Shutdown Time | N/A | <2s (quit to process exit) | Stopwatch |
+
+#### Windows Validation Requirements
+
+**Manual Testing on Hardware:**
+- Windows 10 Build 19045+ (22H2) - 65%+ market share
+- Windows 11 Build 22621+ (22H2)
+- Built-in webcam + USB webcam
+- Multiple monitors (validate tray icon visible)
+- High DPI displays (200% scaling, 4K)
+
+**30-Minute Stability Test:**
+- Continuous monitoring for 30 minutes
+- Memory sampled every 30 seconds (must be stable <255 MB, no growth)
+- CPU averaged over duration (<35%)
+- Trigger 5+ alerts during test
+- Use all control methods (pause, resume, stats)
+- **Success Criteria:** Zero crashes, zero hangs, memory stable
+
+**Edge Cases:**
+- Camera disconnect during monitoring (graceful degradation)
+- Multiple rapid pause/resume clicks (no duplicate state changes)
+- Queue full scenario (CRITICAL events not dropped)
+- Config file corruption (loads default, shows warning)
+- Disk full (database writes fail gracefully)
+
+#### File Structure (Story 8.5)
+
+**New Files:**
+- `app/standalone/__main__.py` (~350 lines) - Main entry point
+- `tests/test_standalone_main.py` (~200 lines) - Main entry point tests
+- `tests/test_standalone_full_integration.py` (~400 lines) - Full integration tests
+
+**Modified Files:**
+- `app/standalone/tray_app.py` (+100 lines) - Settings, About menus
+- `app/standalone/config.py` (+20 lines) - IPC section in DEFAULT_CONFIG
+
+**Total Code:**
+- New: ~950 lines
+- Modified: ~120 lines
+- **Reused from Story 8.4:** 1,640 lines (backend_thread.py + tray_app.py + config.py)
+
+#### Data Flow: Alert Scenario
+
+```
+t=0.0s: CV Pipeline detects bad posture for 10 minutes
+  ├─ Alert Manager triggers alert
+  └─ Backend._notify_callbacks('alert', duration=600, timestamp=...)
+
+t=0.0001s: Callback execution (backend thread)
+  └─ on_alert_callback() enqueues CRITICAL event:
+      queue.put((PRIORITY_CRITICAL, time.perf_counter(), 'alert', {...}), timeout=1.0)
+
+t=0.0002s: Consumer thread dequeues event
+  ├─ Calculate latency: (dequeue_time - enqueue_time) * 1000
+  └─ Call _handle_alert(data, latency_ms)
+
+t=0.05s: Toast notification shown (Windows API)
+  ├─ Title: "⚠️ Posture Alert"
+  ├─ Message: "Bad posture detected for 10 minutes. Please adjust!"
+  ├─ Duration: 10 seconds
+  └─ Sound: IM
+
+t=0.051s: Icon updated to red (alert state)
+
+Total: <100ms from detection to user notification
+```
+
+#### Comparison: Epic 7 vs Epic 8
+
+| Aspect | Epic 7 (Pi + Windows Client) | Epic 8 (Unified Standalone) |
+|--------|------------------------------|----------------------------|
+| **Architecture** | Two processes: Pi backend + Windows client | Single process: Backend + Tray UI |
+| **Network** | SocketIO over LAN (ws://raspberrypi.local:5000) | No network (in-process IPC) |
+| **Latency** | ~200ms (network + serialization) | <1ms IPC, <100ms total with toast |
+| **Memory** | Backend: ~200MB, Client: ~50MB | **<255 MB total** |
+| **Setup** | Install on Pi + install on PC, configure network | Single install on PC only |
+| **Target User** | Tech-savvy users with Raspberry Pi | **90% of market: non-tech users** |
+| **Commercial Viability** | Limited (Pi requirement) | **High: One-click install** |
+
+---
+
 ### Architecture Summary
 
 **Complete DeskPulse structure defined:**

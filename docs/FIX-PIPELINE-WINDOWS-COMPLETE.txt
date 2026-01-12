@@ -1,0 +1,140 @@
+"""
+Auto-patch CVPipeline for Windows Camera Support
+Run this script on Windows to fix pipeline.py
+"""
+import os
+import shutil
+from pathlib import Path
+
+# Path to pipeline.py on Windows
+pipeline_path = Path(r"C:\deskpulse-build\deskpulse_installer\app\cv\pipeline.py")
+
+print(f"Patching: {pipeline_path}")
+
+# Create backup
+backup_path = pipeline_path.with_suffix('.py.backup')
+shutil.copy2(pipeline_path, backup_path)
+print(f"Backup created: {backup_path}")
+
+# Read current file
+content = pipeline_path.read_text(encoding='utf-8')
+
+# Change 1: Add camera parameter to __init__
+content = content.replace(
+    'def __init__(self, fps_target: int = 10, app=None):',
+    'def __init__(self, fps_target: int = 10, app=None, camera=None):'
+)
+
+# Change 2: Add camera tracking
+content = content.replace(
+    '        self.app = app  # Store Flask app for background thread app context\n        self.camera = None',
+    '        self.app = app  # Store Flask app for background thread app context\n        self.camera = camera  # Story 8.1: Use external camera if provided\n        self.external_camera = camera is not None  # Track if using external camera'
+)
+
+# Change 3: Only create CameraCapture if not using external camera
+content = content.replace(
+    '            self.camera = CameraCapture()',
+    '            # Only create CameraCapture if not using external camera (Story 8.1)\n            if not self.external_camera:\n                self.camera = CameraCapture()'
+)
+
+# Change 4: Handle both camera types in initialization
+old_init = '''            # Initialize camera (Story 2.1 pattern)
+            if not self.camera.initialize():
+                logger.error(
+                    "Failed to initialize camera"
+                )
+                self._emit_camera_status('disconnected')
+                # Don't fail startup - camera may connect later
+                # Thread will retry connection
+            else:
+                # Enterprise: Emit connected status on successful startup
+                self.camera_state = 'connected'
+                self._emit_camera_status('connected')'''
+
+new_init = '''            # Initialize camera (Story 2.1 pattern)
+            if not self.external_camera:
+                # Internal CameraCapture - use initialize()
+                if not self.camera.initialize():
+                    logger.error(
+                        "Failed to initialize camera"
+                    )
+                    self._emit_camera_status('disconnected')
+                    # Don't fail startup - camera may connect later
+                    # Thread will retry connection
+                else:
+                    # Enterprise: Emit connected status on successful startup
+                    self.camera_state = 'connected'
+                    self._emit_camera_status('connected')
+            else:
+                # Story 8.1: External camera (WindowsCamera) - use open()
+                logger.info("Using external camera (Story 8.1)")
+                if not self.camera.open():
+                    logger.error("Failed to open external camera")
+                    self._emit_camera_status('disconnected')
+                    # Don't fail startup - will retry in processing loop
+                else:
+                    self.camera_state = 'connected'
+                    self._emit_camera_status('connected')'''
+
+content = content.replace(old_init, new_init)
+
+# Change 5: Handle read() vs read_frame()
+content = content.replace(
+    '                # Attempt frame capture\n                ret, frame = self.camera.read_frame()',
+    '                # Attempt frame capture\n                # Story 8.1: Handle both CameraCapture and WindowsCamera interfaces\n                if self.external_camera:\n                    ret, frame = self.camera.read()\n                else:\n                    ret, frame = self.camera.read_frame()'
+)
+
+# Change 6: Handle retry logic for both camera types
+old_retry = '''                        # Release and reinitialize camera
+                        self.camera.release()
+                        time.sleep(QUICK_RETRY_DELAY)
+
+                        if self.camera.initialize():
+                            ret, frame = self.camera.read_frame()
+                            if ret:
+                                self.camera_state = 'connected'
+                                logger.info(
+                                    f"Camera reconnected after {attempt} "
+                                    f"quick retries"
+                                )
+                                self._emit_camera_status('connected')
+                                reconnected = True
+                                break'''
+
+new_retry = '''                        # Release and reinitialize camera
+                        self.camera.release()
+                        time.sleep(QUICK_RETRY_DELAY)
+
+                        # Story 8.1: Handle both camera interfaces
+                        camera_init_ok = (
+                            self.camera.open() if self.external_camera
+                            else self.camera.initialize()
+                        )
+
+                        if camera_init_ok:
+                            # Try to read a frame
+                            if self.external_camera:
+                                ret, frame = self.camera.read()
+                            else:
+                                ret, frame = self.camera.read_frame()
+
+                            if ret:
+                                self.camera_state = 'connected'
+                                logger.info(
+                                    f"Camera reconnected after {attempt} "
+                                    f"quick retries"
+                                )
+                                self._emit_camera_status('connected')
+                                reconnected = True
+                                break'''
+
+content = content.replace(old_retry, new_retry)
+
+# Write patched file
+pipeline_path.write_text(content, encoding='utf-8')
+
+print("✓ Pipeline patched successfully!")
+print("\nVerify by checking:")
+print("  - Line 61: __init__ should have 'camera=None' parameter")
+print("  - Line 80: Should set self.external_camera")
+print("\nNow run: python windows_perf_test.py")

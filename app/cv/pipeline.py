@@ -19,7 +19,14 @@ except ImportError:
 from app.cv.capture import CameraCapture
 from app.cv.detection import PoseDetector
 from app.cv.classification import PostureClassifier
-from app.extensions import socketio
+
+# Conditional SocketIO import for dual-mode support (Story 8.4)
+# Pi mode: SocketIO for web dashboard
+# Windows standalone: Local IPC callbacks only
+try:
+    from app.extensions import socketio
+except ImportError:
+    socketio = None  # Standalone mode without Flask-SocketIO
 
 logger = logging.getLogger('deskpulse.cv')
 
@@ -58,7 +65,7 @@ class CVPipeline:
         fps_target: Target frames per second (from config, default 10)
     """
 
-    def __init__(self, fps_target: int = 10, app=None):
+    def __init__(self, fps_target: int = 10, app=None, camera=None):
         """
         Initialize CVPipeline with CV components.
 
@@ -68,6 +75,9 @@ class CVPipeline:
                        performance
             app: Flask application instance for background thread context
                 (Story 3.6: Required for alert notifications in CV thread)
+            camera: Optional camera instance for standalone mode (Story 8.4)
+                   If None, creates default CameraCapture in start()
+                   If provided, uses injected camera (e.g., WindowsCamera)
 
         Raises:
             ValueError: If fps_target is zero or negative
@@ -75,13 +85,14 @@ class CVPipeline:
         from flask import current_app
 
         self.app = app  # Store Flask app for background thread app context
-        self.camera = None  # Initialized in start()
+        self.camera = camera  # Injected camera or None (initialized in start() if None)
         self.detector = None
         self.classifier = None
         self.alert_manager = None  # Story 3.1 - Initialized in start()
         self.last_posture_state = None  # Story 4.1 - Track state changes for database persistence
         self.running = False
         self.thread = None
+        self.backend_thread = None  # Story 8.4 - For IPC callback notifications
 
         # Camera state management (Story 2.7)
         self.camera_state = 'disconnected'  # connected/degraded/disconnected
@@ -126,7 +137,10 @@ class CVPipeline:
             from app.alerts.manager import AlertManager
             from app.alerts.notifier import send_alert_notification, send_confirmation  # Story 3.2, 3.5
 
-            self.camera = CameraCapture()
+            # Create camera only if not injected (Story 8.4)
+            if self.camera is None:
+                self.camera = CameraCapture()
+
             self.detector = PoseDetector()
             self.classifier = PostureClassifier()
             self.alert_manager = AlertManager()  # Story 3.1
@@ -136,7 +150,10 @@ class CVPipeline:
             self.send_confirmation = send_confirmation  # Story 3.5
 
             # Initialize camera (Story 2.1 pattern)
-            if not self.camera.initialize():
+            # WindowsCamera (Story 8.3) is already initialized, skip if already open
+            if hasattr(self.camera, 'is_available') and self.camera.is_available():
+                logger.info("Using pre-initialized camera (standalone mode)")
+            elif not self.camera.initialize():
                 logger.error(
                     "Failed to initialize camera"
                 )
@@ -235,15 +252,29 @@ class CVPipeline:
             )
 
         try:
-            socketio.emit(
-                'camera_status',
-                {'state': state, 'timestamp': datetime.now().isoformat()}
-            )
-            logger.info(f"Camera status emitted: {state}")
+            # SocketIO emit for Pi mode (multi-client web dashboard)
+            if socketio:
+                socketio.emit(
+                    'camera_status',
+                    {'state': state, 'timestamp': datetime.now().isoformat()}
+                )
+            logger.info(f"Camera status emitted via SocketIO: {state}")
 
         except Exception as e:
-            # Don't crash if SocketIO emit fails
-            logger.error(f"Failed to emit camera status: {e}")
+            # Don't crash if SocketIO emit fails (standalone mode)
+            logger.debug(f"SocketIO camera status emit failed (standalone mode?): {e}")
+
+        # IPC callback notification for standalone mode (Story 8.4)
+        if self.backend_thread:
+            try:
+                self.backend_thread._notify_callbacks(
+                    'camera_state',
+                    state=state,
+                    timestamp=datetime.now().isoformat()
+                )
+                logger.info(f"Camera status callback triggered: {state}")
+            except Exception as e:
+                logger.error(f"Failed to notify camera_state callbacks: {e}")
 
     def _processing_loop(self) -> None:
         """
@@ -442,17 +473,31 @@ class CVPipeline:
                             self.send_alert_notification(alert_result['duration'])
                             logger.info("Desktop notification sent")
 
-                            # Browser notification (SocketIO - Story 3.3 preparation)
-                            # NOTE: socketio import at module level is safe - already
-                            # initialized in extensions.py before CV pipeline starts
-                            from app.extensions import socketio
-                            logger.info(f"Emitting alert_triggered event via SocketIO...")
-                            socketio.emit('alert_triggered', {
-                                'message': f"Bad posture detected for {alert_result['duration'] // 60} minutes",
-                                'duration': alert_result['duration'],
-                                'timestamp': datetime.now().isoformat()
-                            })
-                            logger.info("✅ alert_triggered event emitted successfully")
+                            # Browser notification (SocketIO for Pi mode)
+                            # Story 8.4: Conditional SocketIO - only emit if available
+                            if socketio:
+                                logger.info(f"Emitting alert_triggered event via SocketIO...")
+                                try:
+                                    socketio.emit('alert_triggered', {
+                                        'message': f"Bad posture detected for {alert_result['duration'] // 60} minutes",
+                                        'duration': alert_result['duration'],
+                                        'timestamp': datetime.now().isoformat()
+                                    })
+                                    logger.info("✅ alert_triggered event emitted successfully")
+                                except Exception as e:
+                                    logger.debug(f"SocketIO alert emit failed: {e}")
+
+                            # IPC callback notification for standalone mode (Story 8.4)
+                            if self.backend_thread:
+                                try:
+                                    self.backend_thread._notify_callbacks(
+                                        'alert',
+                                        duration=alert_result['duration'],
+                                        timestamp=datetime.now().isoformat()
+                                    )
+                                    logger.info("✅ Alert callback triggered")
+                                except Exception as e:
+                                    logger.error(f"Failed to notify alert callbacks: {e}")
 
                     except Exception as e:
                         # Notification failures never crash CV pipeline
@@ -469,17 +514,32 @@ class CVPipeline:
                             # Desktop notification (send_confirmation imported at module level)
                             self.send_confirmation(alert_result['previous_duration'])
 
-                            # Browser notification (SocketIO)
-                            from app.extensions import socketio
-                            socketio.emit('posture_corrected', {
-                                'message': '✓ Good posture restored! Nice work!',
-                                'previous_duration': alert_result['previous_duration'],
-                                'timestamp': datetime.now().isoformat()
-                            }, broadcast=True)
+                            # Browser notification (SocketIO for Pi mode)
+                            # Story 8.4: Conditional SocketIO - only emit if available
+                            if socketio:
+                                try:
+                                    socketio.emit('posture_corrected', {
+                                        'message': '✓ Good posture restored! Nice work!',
+                                        'previous_duration': alert_result['previous_duration'],
+                                        'timestamp': datetime.now().isoformat()
+                                    }, broadcast=True)
+                                    logger.info(
+                                        f"Posture correction confirmed via SocketIO: {alert_result['previous_duration']}s"
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"SocketIO correction emit failed: {e}")
 
-                            logger.info(
-                                f"Posture correction confirmed: {alert_result['previous_duration']}s"
-                            )
+                            # IPC callback notification for standalone mode (Story 8.4)
+                            if self.backend_thread:
+                                try:
+                                    self.backend_thread._notify_callbacks(
+                                        'correction',
+                                        previous_duration=alert_result['previous_duration'],
+                                        timestamp=datetime.now().isoformat()
+                                    )
+                                    logger.info("✅ Correction callback triggered")
+                                except Exception as e:
+                                    logger.error(f"Failed to notify correction callbacks: {e}")
 
                     except Exception as e:
                         # Confirmation failures never crash CV pipeline

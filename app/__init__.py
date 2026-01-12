@@ -1,8 +1,16 @@
 import atexit
 from flask import Flask, current_app
 from flask_talisman import Talisman
-from app.extensions import socketio, init_db
+from app.extensions import init_db
 from app.core import configure_logging
+
+# Conditional SocketIO import for dual-mode support (Story 8.4)
+# Only import if Flask-SocketIO is available (Pi mode)
+# Windows standalone mode doesn't need SocketIO
+try:
+    from app.extensions import socketio
+except ImportError:
+    socketio = None  # Standalone mode without Flask-SocketIO
 
 # Global CV pipeline instance (singleton pattern)
 cv_pipeline = None
@@ -96,7 +104,7 @@ def create_app(config_name="development", database_path=None, standalone_mode=Fa
     # Initialize SocketIO AFTER app created, BEFORE blueprint registration
     # Architecture: async_mode='threading' for CV pipeline compatibility
     # Skip in standalone mode (uses local IPC instead)
-    if not standalone_mode:
+    if not standalone_mode and socketio is not None:
         socketio.init_app(
             app,
             cors_allowed_origins="*",  # Allow cross-origin for local network access
@@ -118,7 +126,7 @@ def create_app(config_name="development", database_path=None, standalone_mode=Fa
     # Import SocketIO event handlers (registers @socketio.on decorators)
     # CRITICAL: Import AFTER socketio.init_app() to ensure app context
     # Skip in standalone mode (no SocketIO)
-    if not standalone_mode:
+    if not standalone_mode and socketio is not None:
         with app.app_context():
             from app.main import events  # noqa: F401
 

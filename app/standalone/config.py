@@ -84,6 +84,12 @@ DEFAULT_CONFIG = {
         'show_dashboard_on_start': False,
         'enable_toast_notifications': True
     },
+    'ipc': {
+        # Story 8.5: Local IPC configuration
+        'event_queue_size': 150,  # Priority queue maxsize (10 FPS × 10s × 1.5 = 150)
+        'alert_latency_target_ms': 50,  # Target latency for alert notifications
+        'metrics_log_interval_seconds': 60  # How often to log queue metrics
+    },
     'advanced': {
         'log_level': 'INFO',
         'enable_debug': False,
@@ -178,58 +184,10 @@ def get_history_days() -> int:
     return config.get('analytics', {}).get('history_days', 30)
 
 
-def setup_logging():
-    """
-    Configure logging for standalone Windows edition.
-
-    Logs to:
-    - File: %APPDATA%/DeskPulse/logs/deskpulse.log (rotating, 10 MB, 5 backups)
-    - Console: DEBUG level for development
-    """
-    from logging.handlers import RotatingFileHandler
-
-    log_file = get_log_path()
-    config = load_config()
-    log_level = config.get('advanced', {}).get('log_level', 'INFO')
-
-    # Root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
-
-    # File handler (rotating)
-    file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=10 * 1024 * 1024,  # 10 MB
-        backupCount=5,
-        encoding='utf-8'
-    )
-    file_handler.setLevel(getattr(logging, log_level))
-    file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    file_handler.setFormatter(file_formatter)
-
-    # Console handler (for development/debugging)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
-    console_formatter = logging.Formatter(
-        '%(levelname)s - %(name)s - %(message)s'
-    )
-    console_handler.setFormatter(console_formatter)
-
-    # Add handlers
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-    logger.info(f"Logging configured: {log_file} (level: {log_level})")
-    logger.info(f"DeskPulse Standalone v{__version__} starting")
-    logger.info(f"Data directory: {get_appdata_dir()}")
 
 
 if __name__ == '__main__':
     # Test configuration
-    setup_logging()
-
     print(f"AppData Directory: {get_appdata_dir()}")
     print(f"Config Path: {get_config_path()}")
     print(f"Database Path: {get_database_path()}")

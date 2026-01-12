@@ -40,9 +40,15 @@ try:
     import mediapipe as mp
     from mediapipe.tasks import python
     from mediapipe.tasks.python import vision
-except ImportError:
+    logger.info("MediaPipe imported successfully")
+except ImportError as e:
     mp = None
-    logger.warning("MediaPipe not installed. Pose detection will not be available.")
+    logger.error(f"MediaPipe import failed: {e}")
+    logger.error("Pose detection will not be available.")
+except Exception as e:
+    mp = None
+    logger.error(f"MediaPipe import error (unexpected): {e}")
+    logger.error("Pose detection will not be available.")
 
 
 class PoseDetector:
@@ -114,9 +120,17 @@ class PoseDetector:
         # Frame counter for timestamp generation (VIDEO mode requires timestamps)
         self.frame_counter = 0
 
-        # Store drawing utilities (still uses mp.solutions for drawing)
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.mp_pose = mp.solutions.pose  # Keep for POSE_CONNECTIONS constant
+        # Store drawing utilities (optional - only needed for visualization)
+        # Try to import from Solutions API, but make it optional for Tasks API compatibility
+        try:
+            self.mp_drawing = mp.solutions.drawing_utils
+            self.mp_pose = mp.solutions.pose  # Keep for POSE_CONNECTIONS constant
+            logger.info("MediaPipe drawing utilities loaded successfully")
+        except (AttributeError, ImportError) as e:
+            self.mp_drawing = None
+            self.mp_pose = None
+            logger.warning(f"MediaPipe drawing utilities not available: {e}")
+            logger.warning("Camera preview feature will be disabled")
 
         # Store config for logging
         self.model_file = model_file
@@ -259,6 +273,11 @@ class PoseDetector:
                        (or original frame unchanged if no landmarks)
         """
         if landmarks is None or frame is None:
+            return frame
+
+        # Check if drawing utilities are available
+        if self.mp_drawing is None or self.mp_pose is None:
+            logger.debug("Drawing utilities not available - skipping landmark visualization")
             return frame
 
         # Convert landmarks list to proto for drawing utilities
