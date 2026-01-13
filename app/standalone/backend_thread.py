@@ -249,6 +249,10 @@ class BackendThread:
         self.camera = None  # Store camera reference for tray preview
         self.camera_error = None  # Store camera error for main thread
 
+        # Flask server thread (Story 8.6 - for dashboard access)
+        self.flask_server_thread = None
+        self.flask_server = None
+
         # Callback registration system (Story 8.4 - Task 2)
         self._callbacks = defaultdict(list)  # event_type -> [callback1, callback2, ...]
         self._callback_lock = threading.Lock()  # Thread-safe callback access
@@ -350,6 +354,9 @@ class BackendThread:
             self.cv_pipeline.start()
             logger.info("CV pipeline started")
 
+            # Start Flask server in separate thread (for dashboard access)
+            self._start_flask_server()
+
             # Main loop - keep thread alive
             while self.running:
                 time.sleep(1)
@@ -372,9 +379,58 @@ class BackendThread:
         finally:
             self._cleanup()
 
+    def _start_flask_server(self):
+        """Start Flask server in separate thread for dashboard access."""
+        try:
+            port = self.config.get('dashboard', {}).get('port', 5000)
+
+            def run_server():
+                """Run Flask server (werkzeug)."""
+                try:
+                    logger.info(f"Starting Flask server on http://localhost:{port}")
+
+                    # Use werkzeug server (not production, but fine for localhost)
+                    from werkzeug.serving import make_server
+
+                    self.flask_server = make_server(
+                        'localhost',  # localhost only - no network exposure
+                        port,
+                        self.flask_app,
+                        threaded=True  # Handle multiple requests
+                    )
+
+                    logger.info(f"Dashboard available at http://localhost:{port}")
+                    self.flask_server.serve_forever()
+
+                except Exception as e:
+                    logger.error(f"Flask server error: {e}")
+
+            # Start server in daemon thread
+            self.flask_server_thread = threading.Thread(
+                target=run_server,
+                daemon=True,
+                name='FlaskServer'
+            )
+            self.flask_server_thread.start()
+            logger.info("Flask server thread started")
+
+        except Exception as e:
+            logger.exception(f"Failed to start Flask server: {e}")
+            logger.warning("Dashboard will not be available, but monitoring continues")
+
     def _cleanup(self):
         """Cleanup resources."""
         try:
+            # Stop Flask server
+            if self.flask_server:
+                logger.info("Stopping Flask server")
+                self.flask_server.shutdown()
+                self.flask_server = None
+
+            if self.flask_server_thread and self.flask_server_thread.is_alive():
+                self.flask_server_thread.join(timeout=2)
+                logger.info("Flask server thread stopped")
+
             if self.cv_pipeline:
                 self.cv_pipeline.stop()
                 logger.info("CV pipeline stopped")
