@@ -135,18 +135,56 @@ class TrayApp:
         logger.info("TrayApp initialized")
 
     def _create_icon_images(self):
-        """Create tray icon images for each state."""
-        # 32x32 icons with simple colored circle
-        size = (32, 32)
+        """
+        Load professional icon from assets and create state variants.
 
+        Enterprise-grade: Uses professional .ico file with color tinting for states.
+        """
+        import os
+        from pathlib import Path
+
+        # Try to load professional icon file
+        icon_path = Path(__file__).parent.parent.parent / 'assets' / 'windows' / 'icon_professional.ico'
+
+        if icon_path.exists():
+            # Load professional icon
+            try:
+                base_icon = Image.open(icon_path)
+
+                # Resize to 32x32 for system tray
+                if base_icon.size != (32, 32):
+                    base_icon = base_icon.resize((32, 32), Image.Resampling.LANCZOS)
+
+                # Create state variants with colored overlay
+                for state, color in STATE_COLORS.items():
+                    icon_copy = base_icon.copy().convert('RGBA')
+
+                    # Add subtle colored border for state indication
+                    overlay = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
+                    draw = ImageDraw.Draw(overlay)
+
+                    # Draw colored ring around edge
+                    draw.ellipse([0, 0, 31, 31], outline=color, width=3)
+
+                    # Composite icon with overlay
+                    icon_copy = Image.alpha_composite(icon_copy, overlay)
+                    self.icon_cache[state] = icon_copy
+
+                logger.info(f"Loaded professional icon from {icon_path}")
+                return
+
+            except Exception as e:
+                logger.warning(f"Failed to load professional icon: {e}, using fallback")
+
+        # Fallback: Create simple programmatic icons
+        size = (32, 32)
         for state, color in STATE_COLORS.items():
-            image = Image.new('RGBA', size, (255, 255, 255, 0))  # Transparent background
+            image = Image.new('RGBA', size, (255, 255, 255, 0))
             draw = ImageDraw.Draw(image)
-            # Draw filled circle
             draw.ellipse([4, 4, 28, 28], fill=color, outline=(0, 0, 0, 255))
             self.icon_cache[state] = image
 
-        logger.debug(f"Created {len(self.icon_cache)} icon images")
+        logger.debug(f"Created {len(self.icon_cache)} fallback icon images")
 
     def start(self):
         """
@@ -181,7 +219,10 @@ class TrayApp:
             pystray.MenuItem("Today's Stats", self._show_stats),
             pystray.MenuItem("7-Day History", self._show_history),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Open Dashboard", self._open_dashboard),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Settings", self._show_settings),
+            pystray.MenuItem("View Logs", self._open_logs),
             pystray.MenuItem("About", self._show_about),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit DeskPulse", self._quit_app)
@@ -626,8 +667,12 @@ class TrayApp:
                         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
                             break
 
-                    # Cleanup
-                    cv2.destroyWindow(window_name)
+                    # Cleanup - handle case where window already destroyed
+                    try:
+                        cv2.destroyWindow(window_name)
+                    except cv2.error as e:
+                        # Window already destroyed (user clicked X) - this is expected
+                        logger.debug(f"Window already destroyed: {e}")
                     logger.info("Camera preview window closed")
 
                 except Exception as e:
@@ -667,20 +712,70 @@ class TrayApp:
                     stats = self.backend.get_today_stats()
 
             if stats:
-                # Format stats
-                good_minutes = stats.get('good_duration_seconds', 0) // 60
-                bad_minutes = stats.get('bad_duration_seconds', 0) // 60
+                # Format stats with enterprise-grade presentation
+                from datetime import date
+                good_seconds = stats.get('good_duration_seconds', 0)
+                bad_seconds = stats.get('bad_duration_seconds', 0)
+                total_seconds = good_seconds + bad_seconds
                 score = stats.get('posture_score', 0)
+                total_events = stats.get('total_events', 0)
 
-                message = f"""Today's Posture Statistics
+                # Convert to hours:minutes format for better readability
+                good_hours = good_seconds // 3600
+                good_mins = (good_seconds % 3600) // 60
+                bad_hours = bad_seconds // 3600
+                bad_mins = (bad_seconds % 3600) // 60
+                total_hours = total_seconds // 3600
+                total_mins = (total_seconds % 3600) // 60
 
-Good Posture: {good_minutes} minutes
-Bad Posture: {bad_minutes} minutes
-Score: {score:.1f}%
+                # Grade the score
+                if score >= 90:
+                    grade = "Excellent"
+                elif score >= 75:
+                    grade = "Good"
+                elif score >= 60:
+                    grade = "Fair"
+                else:
+                    grade = "Needs Improvement"
 
-Keep up the good work!"""
+                message = f"""╔══════════════════════════════════════════╗
+   DESKPULSE - TODAY'S POSTURE SUMMARY
+╚══════════════════════════════════════════╝
+
+Date: {date.today().strftime('%A, %B %d, %Y')}
+
+──────────────────────────────────────────
+  POSTURE BREAKDOWN
+──────────────────────────────────────────
+Good Posture:    {good_hours:2d}h {good_mins:02d}m
+Bad Posture:     {bad_hours:2d}h {bad_mins:02d}m
+Total Active:    {total_hours:2d}h {total_mins:02d}m
+
+──────────────────────────────────────────
+  PERFORMANCE SCORE
+──────────────────────────────────────────
+Score:           {score:.1f}%
+Grade:           {grade}
+Posture Events:  {total_events}
+
+──────────────────────────────────────────"""
+
+                if score >= 75:
+                    message += "\n✓ Great work! Keep maintaining good posture."
+                elif score >= 60:
+                    message += "\n→ Room for improvement. Take regular breaks."
+                else:
+                    message += "\n⚠ Consider reviewing your desk ergonomics."
+
             else:
-                message = "No statistics available yet.\n\nStart monitoring to track your posture!"
+                message = """╔══════════════════════════════════════════╗
+   DESKPULSE - TODAY'S POSTURE SUMMARY
+╚══════════════════════════════════════════╝
+
+No data available yet.
+
+Start monitoring to track your posture statistics.
+The system will begin collecting data as you work."""
 
             # Show message box using thread-safe helper
             show_message_box(
@@ -711,23 +806,81 @@ Keep up the good work!"""
                     logger.exception(f"Error fetching 7-day history: {e}")
 
             if history and len(history) > 0:
-                # Format history as table
-                lines = ["7-Day Posture History\n"]
-                lines.append("=" * 60)
-                lines.append(f"{'Date':<12} {'Good':>8} {'Bad':>8} {'Score':>8}")
-                lines.append("-" * 60)
+                # Calculate weekly totals and average
+                total_good = sum(d.get('good_duration_seconds', 0) for d in history)
+                total_bad = sum(d.get('bad_duration_seconds', 0) for d in history)
+                total_monitored = total_good + total_bad
+                avg_score = sum(d.get('posture_score', 0) for d in history) / len(history)
+
+                # Format history as enterprise-grade table
+                from datetime import datetime
+                lines = ["""╔════════════════════════════════════════════════════╗
+   DESKPULSE - 7-DAY POSTURE HISTORY
+╚════════════════════════════════════════════════════╝
+"""]
+
+                lines.append("──────────────────────────────────────────────────")
+                lines.append(f"{'Date':<14} {'Good':>9} {'Bad':>9} {'Score':>8} {'Grade':<12}")
+                lines.append("──────────────────────────────────────────────────")
 
                 for day in history:
-                    date_str = str(day.get('date', 'Unknown'))[:10]  # YYYY-MM-DD
+                    # Format date nicely
+                    date_obj = day.get('date')
+                    if isinstance(date_obj, str):
+                        date_obj = datetime.fromisoformat(date_obj).date()
+                    date_str = date_obj.strftime('%a %m/%d')  # "Mon 01/13"
+
                     good_mins = day.get('good_duration_seconds', 0) // 60
                     bad_mins = day.get('bad_duration_seconds', 0) // 60
                     score = day.get('posture_score', 0)
 
-                    lines.append(f"{date_str:<12} {good_mins:>6}m {bad_mins:>6}m {score:>7.1f}%")
+                    # Grade
+                    if score >= 90:
+                        grade = "Excellent"
+                    elif score >= 75:
+                        grade = "Good"
+                    elif score >= 60:
+                        grade = "Fair"
+                    else:
+                        grade = "Poor"
+
+                    lines.append(f"{date_str:<14} {good_mins:>7}m {bad_mins:>7}m {score:>7.1f}% {grade:<12}")
+
+                # Weekly summary
+                total_hours = total_monitored // 3600
+                total_mins = (total_monitored % 3600) // 60
+                good_hours = total_good // 3600
+                good_mins_remainder = (total_good % 3600) // 60
+
+                lines.append("──────────────────────────────────────────────────")
+                lines.append(f"\nWEEKLY SUMMARY ({len(history)} days)")
+                lines.append("──────────────────────────────────────────────────")
+                lines.append(f"Total Monitored:     {total_hours}h {total_mins}m")
+                lines.append(f"Good Posture:        {good_hours}h {good_mins_remainder}m")
+                lines.append(f"Average Score:       {avg_score:.1f}%")
+
+                # Trend indicator
+                if len(history) >= 2:
+                    recent_avg = sum(d.get('posture_score', 0) for d in history[-3:]) / min(3, len(history))
+                    older_avg = sum(d.get('posture_score', 0) for d in history[:-3]) / max(1, len(history)-3) if len(history) > 3 else recent_avg
+
+                    if recent_avg > older_avg + 5:
+                        lines.append(f"\n✓ Trend: IMPROVING ({recent_avg - older_avg:+.1f}%)")
+                    elif recent_avg < older_avg - 5:
+                        lines.append(f"\n↓ Trend: DECLINING ({recent_avg - older_avg:+.1f}%)")
+                    else:
+                        lines.append("\n→ Trend: STABLE")
 
                 message = "\n".join(lines)
             else:
-                message = "No history data available yet.\n\nContinue monitoring to build your 7-day history!"
+                message = """╔════════════════════════════════════════════════════╗
+   DESKPULSE - 7-DAY POSTURE HISTORY
+╚════════════════════════════════════════════════════╝
+
+No history data available yet.
+
+Continue monitoring to build your 7-day posture history.
+Data will appear here as you accumulate daily statistics."""
 
             # Show message box using thread-safe helper
             show_message_box(
@@ -749,15 +902,42 @@ Keep up the good work!"""
         try:
             from app.standalone.config import get_appdata_dir
 
-            config_path = str(get_appdata_dir() / 'config.json')
+            appdata_dir = get_appdata_dir()
+            config_path = str(appdata_dir / 'config.json')
+            logs_path = str(appdata_dir / 'logs')
+            db_path = str(appdata_dir / 'deskpulse.db')
 
-            message = f"""Configuration file location:
+            message = f"""╔════════════════════════════════════════════════════╗
+   DESKPULSE - SETTINGS & CONFIGURATION
+╚════════════════════════════════════════════════════╝
 
-{config_path}
+──────────────────────────────────────────────────
+  CONFIGURATION FILE
+──────────────────────────────────────────────────
+Location: {config_path}
 
-Edit config.json and restart the app to apply changes.
+Edit config.json to customize:
+  • Posture angle threshold
+  • Alert frequency
+  • Toast notification settings
+  • Camera device selection
 
-You can also access the data directory to view logs and database."""
+Changes require app restart to take effect.
+
+──────────────────────────────────────────────────
+  DATA DIRECTORY
+──────────────────────────────────────────────────
+Root:     {appdata_dir}
+Logs:     {logs_path}
+Database: {db_path}
+
+──────────────────────────────────────────────────
+  QUICK ACCESS
+──────────────────────────────────────────────────
+Use "View Logs" menu to open logs folder directly.
+Use "Open Dashboard" menu for web interface.
+
+──────────────────────────────────────────────────"""
 
             # Show message box using thread-safe helper
             show_message_box(
@@ -781,16 +961,45 @@ You can also access the data directory to view logs and database."""
         try:
             import platform
 
-            about_text = f"""DeskPulse - Standalone Edition
-Version: 2.0.0
+            # Get Python bitness
+            is_64bit = platform.machine().endswith('64')
+            bitness = "64-bit" if is_64bit else "32-bit"
 
-Platform: {platform.system()} {platform.release()} (Build {platform.version()})
-Python: {platform.python_version()}
+            about_text = f"""╔════════════════════════════════════════════════════╗
+   DESKPULSE - STANDALONE EDITION
+╚════════════════════════════════════════════════════╝
 
-GitHub: github.com/EmekaOkaforTech/deskpulse
-License: MIT
+──────────────────────────────────────────────────
+  VERSION INFORMATION
+──────────────────────────────────────────────────
+Version:        2.0.0
+Edition:        Standalone Windows
+Release Date:   January 2026
+Build Type:     PyInstaller {bitness}
 
-Real-time posture monitoring for better desk ergonomics."""
+──────────────────────────────────────────────────
+  SYSTEM INFORMATION
+──────────────────────────────────────────────────
+Platform:       {platform.system()} {platform.release()}
+Architecture:   {platform.machine()}
+Build:          {platform.version()}
+Python Engine:  {platform.python_version()}
+
+──────────────────────────────────────────────────
+  PROJECT LINKS
+──────────────────────────────────────────────────
+GitHub:         github.com/EmekaOkaforTech/deskpulse
+Documentation:  github.com/EmekaOkaforTech/deskpulse/wiki
+Issues:         github.com/EmekaOkaforTech/deskpulse/issues
+
+──────────────────────────────────────────────────
+  LICENSE & CREDITS
+──────────────────────────────────────────────────
+License:        MIT License
+Powered by:     MediaPipe, OpenCV, Flask, SQLAlchemy
+
+Real-time posture monitoring for better desk ergonomics.
+──────────────────────────────────────────────────"""
 
             # Show message box using thread-safe helper
             show_message_box(
@@ -806,6 +1015,63 @@ Real-time posture monitoring for better desk ergonomics."""
             self._show_toast(
                 title="⚠️ Error",
                 message=f"Failed to show about dialog: {e}",
+                duration="short"
+            )
+
+    def _open_dashboard(self):
+        """Open web dashboard in default browser."""
+        try:
+            import webbrowser
+
+            dashboard_url = "http://localhost:5000"
+            logger.info(f"Opening dashboard: {dashboard_url}")
+
+            # Open in default browser
+            webbrowser.open(dashboard_url)
+
+            # Show toast notification
+            self._show_toast(
+                title="🌐 Dashboard",
+                message="Opening web dashboard in browser...",
+                duration="short"
+            )
+
+        except Exception as e:
+            logger.exception(f"Open dashboard error: {e}")
+            self._show_toast(
+                title="⚠️ Error",
+                message=f"Failed to open dashboard: {e}",
+                duration="short"
+            )
+
+    def _open_logs(self):
+        """Open logs directory in Windows Explorer."""
+        try:
+            import subprocess
+            from app.standalone.config import get_appdata_dir
+
+            logs_path = get_appdata_dir() / 'logs'
+
+            # Create logs directory if it doesn't exist
+            logs_path.mkdir(parents=True, exist_ok=True)
+
+            logger.info(f"Opening logs directory: {logs_path}")
+
+            # Open in Windows Explorer
+            subprocess.Popen(['explorer', str(logs_path)])
+
+            # Show toast notification
+            self._show_toast(
+                title="📁 Logs",
+                message="Opening logs directory...",
+                duration="short"
+            )
+
+        except Exception as e:
+            logger.exception(f"Open logs error: {e}")
+            self._show_toast(
+                title="⚠️ Error",
+                message=f"Failed to open logs directory: {e}",
                 duration="short"
             )
 
