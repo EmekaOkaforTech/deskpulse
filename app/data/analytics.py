@@ -185,7 +185,7 @@ class PostureAnalytics:
         return stats
 
     @staticmethod
-    def get_7_day_history() -> List[Dict[str, Any]]:
+    def get_7_day_history(pause_timestamp=None) -> List[Dict[str, Any]]:
         """Get posture statistics for the last 7 days (including today).
 
         Returns:
@@ -210,7 +210,11 @@ class PostureAnalytics:
         # Loop from 6 days ago to today (7 total days)
         for days_ago in range(6, -1, -1):  # 6, 5, 4, 3, 2, 1, 0
             target_date = today - timedelta(days=days_ago)
-            daily_stats = PostureAnalytics.calculate_daily_stats(target_date)
+            # CRITICAL: Pass pause_timestamp ONLY for today (not historical dates)
+            if target_date == today:
+                daily_stats = PostureAnalytics.calculate_daily_stats(target_date, pause_timestamp=pause_timestamp)
+            else:
+                daily_stats = PostureAnalytics.calculate_daily_stats(target_date)
             history.append(daily_stats)
 
         logger.debug(f"Retrieved 7-day history: {len(history)} days")
@@ -322,7 +326,7 @@ class PostureAnalytics:
         }
 
     @staticmethod
-    def generate_daily_summary(target_date: Optional[date] = None) -> str:
+    def generate_daily_summary(target_date: Optional[date] = None, pause_timestamp=None) -> str:
         """Generate end-of-day text summary report.
 
         Creates human-readable summary with progress framing, day-over-day
@@ -393,9 +397,10 @@ class PostureAnalytics:
             )
 
         # Get today's statistics (REAL backend connection via Story 4.2)
-        stats = PostureAnalytics.calculate_daily_stats(target_date)
+        # CRITICAL: Pass pause_timestamp for today, not for yesterday
+        stats = PostureAnalytics.calculate_daily_stats(target_date, pause_timestamp=pause_timestamp)
 
-        # Get yesterday's statistics for comparison
+        # Get yesterday's statistics for comparison (historical, no pause_timestamp)
         yesterday = target_date - timedelta(days=1)
         yesterday_stats = PostureAnalytics.calculate_daily_stats(yesterday)
 
