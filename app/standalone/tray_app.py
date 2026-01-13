@@ -572,6 +572,53 @@ class TrayApp:
                     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
                     cv2.resizeWindow(window_name, 640, 480)
 
+                    # Set DeskPulse icon for the camera preview window
+                    try:
+                        import win32gui
+                        import win32con
+                        from pathlib import Path
+
+                        # Find the OpenCV window handle
+                        hwnd = win32gui.FindWindow(None, window_name)
+
+                        if hwnd:
+                            # Load DeskPulse icon
+                            icon_path = Path(__file__).parent.parent.parent / 'assets' / 'windows' / 'icon_professional.ico'
+
+                            if icon_path.exists():
+                                # Load icon (small and large)
+                                # LoadImage: (hinst, filename, type, cx, cy, flags)
+                                import win32api
+                                hicon_small = win32gui.LoadImage(
+                                    0,
+                                    str(icon_path),
+                                    win32con.IMAGE_ICON,
+                                    16, 16,  # Small icon size
+                                    win32con.LR_LOADFROMFILE
+                                )
+                                hicon_large = win32gui.LoadImage(
+                                    0,
+                                    str(icon_path),
+                                    win32con.IMAGE_ICON,
+                                    32, 32,  # Large icon size
+                                    win32con.LR_LOADFROMFILE
+                                )
+
+                                # Set window icons
+                                if hicon_small:
+                                    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon_small)
+                                if hicon_large:
+                                    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon_large)
+
+                                logger.debug(f"Set DeskPulse icon for camera preview window")
+                            else:
+                                logger.warning(f"Icon file not found: {icon_path}")
+                        else:
+                            logger.warning(f"Could not find window handle for: {window_name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to set camera preview window icon: {e}")
+                        # Non-critical - continue with default icon
+
                     # Preview loop
                     while True:
                         # Get frame from camera (returns tuple: success, frame)
