@@ -17,8 +17,31 @@ import queue
 import time
 from typing import Optional
 from datetime import datetime
+import ctypes
 
 logger = logging.getLogger('deskpulse.standalone.tray')
+
+# Windows MessageBox helper that works from any thread
+def show_message_box(title: str, message: str, style: int = 0) -> int:
+    """
+    Show Windows MessageBox that works from background threads.
+
+    Uses MB_SYSTEMMODAL to ensure dialog works even when called from
+    non-GUI threads (like tray menu callbacks).
+
+    Args:
+        title: Dialog title
+        message: Dialog message
+        style: MB_* flags (MB_OK, MB_YESNO, etc.)
+
+    Returns:
+        int: Dialog result (IDOK=1, IDCANCEL=2, IDYES=6, IDNO=7)
+    """
+    # MB_SYSTEMMODAL (0x1000) ensures dialog is interactive from any thread
+    # MB_SETFOREGROUND (0x10000) brings dialog to front
+    flags = style | 0x1000 | 0x10000  # MB_SYSTEMMODAL | MB_SETFOREGROUND
+
+    return ctypes.windll.user32.MessageBoxW(0, message, title, flags)
 
 # Conditional imports for Windows dependencies
 try:
@@ -553,7 +576,7 @@ class TrayApp:
                                 frame,
                                 "MONITORING PAUSED",
                                 (10, 100),
-                                cv2.FONT_HERSHEY_BOLD,
+                                cv2.FONT_HERSHEY_SIMPLEX,
                                 1.2,
                                 (0, 165, 255),  # Orange
                                 3
@@ -648,13 +671,11 @@ Keep up the good work!"""
             else:
                 message = "No statistics available yet.\n\nStart monitoring to track your posture!"
 
-            # Show message box with MB_TOPMOST (removed MB_TASKMODAL to fix frozen dialog)
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(
-                None,
-                message,
+            # Show message box using thread-safe helper
+            show_message_box(
                 "DeskPulse Statistics",
-                0x0 | 0x40000  # MB_OK | MB_TOPMOST
+                message,
+                0x0 | 0x40  # MB_OK | MB_ICONINFORMATION
             )
 
         except Exception as e:
@@ -680,12 +701,11 @@ Edit config.json and restart the app to apply changes.
 
 You can also access the data directory to view logs and database."""
 
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(
-                None,
-                message,
+            # Show message box using thread-safe helper
+            show_message_box(
                 "DeskPulse - Settings",
-                0x0 | 0x40 | 0x40000  # MB_OK | MB_ICONINFORMATION | MB_TOPMOST
+                message,
+                0x0 | 0x40  # MB_OK | MB_ICONINFORMATION
             )
 
             logger.info("Settings menu shown")
@@ -714,12 +734,11 @@ License: MIT
 
 Real-time posture monitoring for better desk ergonomics."""
 
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(
-                None,
-                about_text,
+            # Show message box using thread-safe helper
+            show_message_box(
                 "About DeskPulse",
-                0x0 | 0x40 | 0x40000  # MB_OK | MB_ICONINFORMATION | MB_TOPMOST
+                about_text,
+                0x0 | 0x40  # MB_OK | MB_ICONINFORMATION
             )
 
             logger.info("About dialog shown")
@@ -736,13 +755,11 @@ Real-time posture monitoring for better desk ergonomics."""
         """Quit application via menu."""
         logger.info("Quit requested via tray menu")
 
-        # Show confirmation dialog with MB_TOPMOST (removed MB_TASKMODAL to fix frozen dialog)
-        import ctypes
-        result = ctypes.windll.user32.MessageBoxW(
-            None,
-            "Are you sure you want to quit DeskPulse?",
+        # Show confirmation dialog using thread-safe helper
+        result = show_message_box(
             "Quit DeskPulse",
-            0x4 | 0x40000  # MB_YESNO | MB_TOPMOST (removed MB_TASKMODAL and MB_SETFOREGROUND)
+            "Are you sure you want to quit DeskPulse?",
+            0x4 | 0x20  # MB_YESNO | MB_ICONQUESTION
         )
 
         if result == 6:  # IDYES
