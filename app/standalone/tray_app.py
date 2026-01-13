@@ -752,7 +752,14 @@ class TrayApp:
                     with self.backend.flask_app.app_context():
                         from app.data.analytics import PostureAnalytics
                         from datetime import date
-                        stats = PostureAnalytics.calculate_daily_stats(date.today())
+
+                        # Get pause_timestamp if monitoring is paused (CRITICAL for accurate stats)
+                        pause_timestamp = None
+                        if self.backend.cv_pipeline and self.backend.cv_pipeline.alert_manager:
+                            if self.backend.cv_pipeline.alert_manager.monitoring_paused:
+                                pause_timestamp = self.backend.cv_pipeline.alert_manager.pause_timestamp
+
+                        stats = PostureAnalytics.calculate_daily_stats(date.today(), pause_timestamp=pause_timestamp)
                 except Exception as e:
                     logger.exception(f"Error fetching fresh stats: {e}")
                     # Fallback to cached stats
