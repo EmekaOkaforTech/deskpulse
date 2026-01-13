@@ -24,10 +24,13 @@ logger = logging.getLogger('deskpulse.standalone.tray')
 # Windows MessageBox helper that works from any thread
 def show_message_box(title: str, message: str, style: int = 0) -> int:
     """
-    Show Windows MessageBox that works from background threads.
+    Show Windows MessageBox from a separate thread to avoid deadlock.
 
-    Uses MB_SYSTEMMODAL to ensure dialog works even when called from
-    non-GUI threads (like tray menu callbacks).
+    CRITICAL: pystray menu callbacks run in pystray's thread. If we call
+    MessageBoxW directly from that thread, it blocks and creates a deadlock
+    because Windows can't deliver button click messages back to the blocked thread.
+
+    Solution: Run MessageBoxW in a dedicated thread.
 
     Args:
         title: Dialog title
@@ -37,11 +40,18 @@ def show_message_box(title: str, message: str, style: int = 0) -> int:
     Returns:
         int: Dialog result (IDOK=1, IDCANCEL=2, IDYES=6, IDNO=7)
     """
-    # MB_SYSTEMMODAL (0x1000) ensures dialog is interactive from any thread
-    # MB_SETFOREGROUND (0x10000) brings dialog to front
-    flags = style | 0x1000 | 0x10000  # MB_SYSTEMMODAL | MB_SETFOREGROUND
+    result_container = [0]  # Use list to store result from thread
 
-    return ctypes.windll.user32.MessageBoxW(0, message, title, flags)
+    def messagebox_thread():
+        # MB_SYSTEMMODAL (0x1000) + MB_SETFOREGROUND (0x10000)
+        flags = style | 0x1000 | 0x10000
+        result_container[0] = ctypes.windll.user32.MessageBoxW(0, message, title, flags)
+
+    thread = threading.Thread(target=messagebox_thread, daemon=False)
+    thread.start()
+    thread.join()  # Wait for dialog to close
+
+    return result_container[0]
 
 # Conditional imports for Windows dependencies
 try:
