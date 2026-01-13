@@ -506,6 +506,59 @@ class TrayApp:
                             logger.warning("Failed to read frame from camera")
                             break
 
+                        # Get latest landmarks from CV pipeline for skeleton overlay
+                        landmarks = None
+                        posture_state = None
+                        if hasattr(self.backend, 'cv_pipeline') and self.backend.cv_pipeline:
+                            if hasattr(self.backend.cv_pipeline, 'detector'):
+                                try:
+                                    # Detect landmarks on this frame
+                                    detection_result = self.backend.cv_pipeline.detector.detect_landmarks(frame)
+                                    landmarks = detection_result.get('landmarks')
+
+                                    # Get posture state for color
+                                    if landmarks and hasattr(self.backend.cv_pipeline, 'classifier'):
+                                        posture_state = self.backend.cv_pipeline.classifier.classify_posture(landmarks)
+                                except:
+                                    pass
+
+                        # Draw skeleton overlay if landmarks available
+                        if landmarks:
+                            # Determine skeleton color based on posture
+                            if posture_state == 'good':
+                                skeleton_color = (0, 255, 0)  # Green
+                            elif posture_state == 'bad':
+                                skeleton_color = (0, 0, 255)  # Red
+                            else:
+                                skeleton_color = (255, 255, 0)  # Yellow (unknown)
+
+                            # Draw landmarks manually (simplified - just key points)
+                            h, w, _ = frame.shape
+                            for i, lm in enumerate(landmarks):
+                                # Draw landmark points
+                                x = int(lm.x * w)
+                                y = int(lm.y * h)
+                                cv2.circle(frame, (x, y), 3, skeleton_color, -1)
+
+                        # Check if monitoring is paused
+                        monitoring_paused = False
+                        if hasattr(self.backend, 'cv_pipeline') and self.backend.cv_pipeline:
+                            if hasattr(self.backend.cv_pipeline, 'alert_manager') and self.backend.cv_pipeline.alert_manager:
+                                monitoring_paused = self.backend.cv_pipeline.alert_manager.monitoring_paused
+
+                        # Add monitoring status overlay
+                        if monitoring_paused:
+                            # Large "MONITORING PAUSED" text
+                            cv2.putText(
+                                frame,
+                                "MONITORING PAUSED",
+                                (10, 100),
+                                cv2.FONT_HERSHEY_BOLD,
+                                1.2,
+                                (0, 165, 255),  # Orange
+                                3
+                            )
+
                         # Add text overlay
                         cv2.putText(
                             frame,
@@ -566,7 +619,18 @@ class TrayApp:
     def _show_stats(self):
         """Show today's statistics via message box."""
         try:
-            stats = self.backend.get_today_stats()
+            # Force fresh stats (bypass cache) for accurate display
+            stats = None
+            if self.backend.flask_app:
+                try:
+                    with self.backend.flask_app.app_context():
+                        from app.data.analytics import PostureAnalytics
+                        from datetime import date
+                        stats = PostureAnalytics.calculate_daily_stats(date.today())
+                except Exception as e:
+                    logger.exception(f"Error fetching fresh stats: {e}")
+                    # Fallback to cached stats
+                    stats = self.backend.get_today_stats()
 
             if stats:
                 # Format stats
@@ -584,13 +648,13 @@ Keep up the good work!"""
             else:
                 message = "No statistics available yet.\n\nStart monitoring to track your posture!"
 
-            # Show message box with MB_TOPMOST to ensure it appears in foreground
+            # Show message box with MB_TOPMOST (removed MB_TASKMODAL to fix frozen dialog)
             import ctypes
             ctypes.windll.user32.MessageBoxW(
                 None,
                 message,
                 "DeskPulse Statistics",
-                0x0 | 0x2000 | 0x10000 | 0x40000  # MB_OK | MB_TASKMODAL | MB_SETFOREGROUND | MB_TOPMOST
+                0x0 | 0x40000  # MB_OK | MB_TOPMOST
             )
 
         except Exception as e:
@@ -621,7 +685,7 @@ You can also access the data directory to view logs and database."""
                 None,
                 message,
                 "DeskPulse - Settings",
-                0x0 | 0x2000 | 0x10000 | 0x40 | 0x40000  # MB_OK | MB_TASKMODAL | MB_SETFOREGROUND | MB_ICONINFORMATION | MB_TOPMOST
+                0x0 | 0x40 | 0x40000  # MB_OK | MB_ICONINFORMATION | MB_TOPMOST
             )
 
             logger.info("Settings menu shown")
@@ -655,7 +719,7 @@ Real-time posture monitoring for better desk ergonomics."""
                 None,
                 about_text,
                 "About DeskPulse",
-                0x0 | 0x2000 | 0x10000 | 0x40 | 0x40000  # MB_OK | MB_TASKMODAL | MB_SETFOREGROUND | MB_ICONINFORMATION | MB_TOPMOST
+                0x0 | 0x40 | 0x40000  # MB_OK | MB_ICONINFORMATION | MB_TOPMOST
             )
 
             logger.info("About dialog shown")
@@ -672,13 +736,13 @@ Real-time posture monitoring for better desk ergonomics."""
         """Quit application via menu."""
         logger.info("Quit requested via tray menu")
 
-        # Show confirmation dialog with MB_TOPMOST
+        # Show confirmation dialog with MB_TOPMOST (removed MB_TASKMODAL to fix frozen dialog)
         import ctypes
         result = ctypes.windll.user32.MessageBoxW(
             None,
             "Are you sure you want to quit DeskPulse?",
             "Quit DeskPulse",
-            0x4 | 0x2000 | 0x10000 | 0x40000  # MB_YESNO | MB_TASKMODAL | MB_SETFOREGROUND | MB_TOPMOST
+            0x4 | 0x40000  # MB_YESNO | MB_TOPMOST (removed MB_TASKMODAL and MB_SETFOREGROUND)
         )
 
         if result == 6:  # IDYES
