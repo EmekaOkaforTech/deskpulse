@@ -136,17 +136,15 @@ All required features delivered and working.
 
 1. ✅ **7-Day History** - DONE (just added)
 
-2. ❌ **Open Dashboard** - Should add:
-   ```python
-   pystray.MenuItem("Open Dashboard", self._open_dashboard)
+2. ✅ **View Logs** - DONE (just added)
 
-   def _open_dashboard(self):
-       """Open web dashboard in browser."""
-       import webbrowser
-       webbrowser.open("http://localhost:5000")
-   ```
+3. ❌ **Open Dashboard** - NOT APPLICABLE:
+   - Standalone Edition uses direct backend calls (no network)
+   - NO Flask web server runs in standalone mode
+   - NO web dashboard available
+   - This feature only exists in Epic 2 (Raspberry Pi edition)
 
-3. ❌ **View Logs** - Should add:
+4. ❌ **End-of-Day Summary** - Should add (optional):
    ```python
    pystray.MenuItem("View Logs", self._open_logs)
 
@@ -193,19 +191,19 @@ pystray.MenuItem("Today's Summary", self._show_summary)
 DeskPulse System Tray Icon
 ├─ Pause/Resume Monitoring
 ├─ ───────────────
-├─ View Camera Feed         ← Already added (bonus)
+├─ View Camera Feed         ← Added (bonus)
 ├─ ───────────────
 ├─ Today's Stats            ← Required (done)
-├─ 7-Day History            ← Just added (bonus)
-├─ Today's Summary          ← Missing (Story 4.6)
-├─ ───────────────
-├─ Open Dashboard           ← Missing (should add)
+├─ 7-Day History            ← Added (bonus)
 ├─ ───────────────
 ├─ Settings                 ← Required (done)
-├─ View Logs                ← Missing (should add)
+├─ View Logs                ← Added (bonus)
 ├─ About                    ← Required (done)
 ├─ ───────────────
 └─ Quit DeskPulse           ← Required (done)
+
+NOTE: "Open Dashboard" removed - NOT applicable to Standalone Edition
+(no web server runs in standalone mode, direct backend calls only)
 ```
 
 ---
