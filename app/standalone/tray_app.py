@@ -179,6 +179,7 @@ class TrayApp:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("View Camera Feed", self._show_camera_preview),
             pystray.MenuItem("Today's Stats", self._show_stats),
+            pystray.MenuItem("7-Day History", self._show_history),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Settings", self._show_settings),
             pystray.MenuItem("About", self._show_about),
@@ -693,6 +694,53 @@ Keep up the good work!"""
             self._show_toast(
                 title="⚠️ Error",
                 message=f"Failed to retrieve statistics: {e}",
+                duration="short"
+            )
+
+    def _show_history(self):
+        """Show 7-day history via message box."""
+        try:
+            # Get 7-day history from backend
+            history = None
+            if self.backend.flask_app:
+                try:
+                    with self.backend.flask_app.app_context():
+                        from app.data.analytics import PostureAnalytics
+                        history = PostureAnalytics.get_7_day_history()
+                except Exception as e:
+                    logger.exception(f"Error fetching 7-day history: {e}")
+
+            if history and len(history) > 0:
+                # Format history as table
+                lines = ["7-Day Posture History\n"]
+                lines.append("=" * 60)
+                lines.append(f"{'Date':<12} {'Good':>8} {'Bad':>8} {'Score':>8}")
+                lines.append("-" * 60)
+
+                for day in history:
+                    date_str = str(day.get('date', 'Unknown'))[:10]  # YYYY-MM-DD
+                    good_mins = day.get('good_duration_seconds', 0) // 60
+                    bad_mins = day.get('bad_duration_seconds', 0) // 60
+                    score = day.get('posture_score', 0)
+
+                    lines.append(f"{date_str:<12} {good_mins:>6}m {bad_mins:>6}m {score:>7.1f}%")
+
+                message = "\n".join(lines)
+            else:
+                message = "No history data available yet.\n\nContinue monitoring to build your 7-day history!"
+
+            # Show message box using thread-safe helper
+            show_message_box(
+                "DeskPulse - 7-Day History",
+                message,
+                0x0 | 0x40  # MB_OK | MB_ICONINFORMATION
+            )
+
+        except Exception as e:
+            logger.exception(f"Show history error: {e}")
+            self._show_toast(
+                title="⚠️ Error",
+                message=f"Failed to retrieve history: {e}",
                 duration="short"
             )
 
