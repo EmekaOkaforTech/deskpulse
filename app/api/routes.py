@@ -35,7 +35,19 @@ def get_today_stats():
         JSON: {"error": "Failed to retrieve statistics"} with 500 status
     """
     try:
-        stats = PostureAnalytics.calculate_daily_stats(date.today())
+        # Get pause_timestamp if monitoring is paused (CRITICAL for accurate stats)
+        pause_timestamp = None
+        try:
+            from flask import current_app
+            # Access CV pipeline to get pause timestamp
+            if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+                if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                    if current_app.cv_pipeline.alert_manager.monitoring_paused:
+                        pause_timestamp = current_app.cv_pipeline.alert_manager.pause_timestamp
+        except:
+            pass  # Non-critical - continue without pause_timestamp
+
+        stats = PostureAnalytics.calculate_daily_stats(date.today(), pause_timestamp=pause_timestamp)
 
         # Convert date object to ISO 8601 string for JSON serialization
         # Why needed: Python date objects are not JSON-serializable by default
