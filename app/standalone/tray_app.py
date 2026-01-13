@@ -219,6 +219,8 @@ class TrayApp:
             pystray.MenuItem("Today's Stats", self._show_stats),
             pystray.MenuItem("7-Day History", self._show_history),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Open Dashboard", self._open_dashboard),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Settings", self._show_settings),
             pystray.MenuItem("View Logs", self._open_logs),
             pystray.MenuItem("About", self._show_about),
@@ -979,6 +981,7 @@ Database: {db_path}
 ──────────────────────────────────────────────────
   QUICK ACCESS
 ──────────────────────────────────────────────────
+Use "Open Dashboard" menu for web interface (graphs).
 Use "View Logs" menu to open logs folder directly.
 Use "View Camera Feed" to preview camera with overlays.
 
@@ -1060,6 +1063,32 @@ Real-time posture monitoring for better desk ergonomics.
             self._show_toast(
                 title="⚠️ Error",
                 message=f"Failed to show about dialog: {e}",
+                duration="short"
+            )
+
+    def _open_dashboard(self):
+        """Open web dashboard in default browser."""
+        try:
+            import webbrowser
+
+            dashboard_url = "http://localhost:5000"
+            logger.info(f"Opening dashboard: {dashboard_url}")
+
+            # Open in default browser
+            webbrowser.open(dashboard_url)
+
+            # Show toast notification
+            self._show_toast(
+                title="🌐 Dashboard",
+                message="Opening web dashboard in browser...",
+                duration="short"
+            )
+
+        except Exception as e:
+            logger.exception(f"Open dashboard error: {e}")
+            self._show_toast(
+                title="⚠️ Error",
+                message=f"Failed to open dashboard: {e}",
                 duration="short"
             )
 
