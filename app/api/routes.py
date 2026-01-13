@@ -87,7 +87,19 @@ def get_history():
         JSON: {"error": "Failed to retrieve history"} with 500 status
     """
     try:
-        history = PostureAnalytics.get_7_day_history()
+        # Get pause_timestamp if monitoring is paused (CRITICAL for accurate today's stats)
+        pause_timestamp = None
+        try:
+            from flask import current_app
+            # Access CV pipeline to get pause timestamp
+            if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+                if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                    if current_app.cv_pipeline.alert_manager.monitoring_paused:
+                        pause_timestamp = current_app.cv_pipeline.alert_manager.pause_timestamp
+        except:
+            pass  # Non-critical - continue without pause_timestamp
+
+        history = PostureAnalytics.get_7_day_history(pause_timestamp=pause_timestamp)
 
         # Convert date objects to ISO 8601 strings for JSON serialization
         # Required for all date objects in the history array
@@ -124,8 +136,20 @@ def get_trend():
         JSON: {"error": "Failed to calculate trend"} with 500 status
     """
     try:
+        # Get pause_timestamp if monitoring is paused (CRITICAL for accurate today's stats)
+        pause_timestamp = None
+        try:
+            from flask import current_app
+            # Access CV pipeline to get pause timestamp
+            if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+                if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                    if current_app.cv_pipeline.alert_manager.monitoring_paused:
+                        pause_timestamp = current_app.cv_pipeline.alert_manager.pause_timestamp
+        except:
+            pass  # Non-critical - continue without pause_timestamp
+
         # Get 7-day history (reuses existing method from Story 4.2)
-        history = PostureAnalytics.get_7_day_history()
+        history = PostureAnalytics.get_7_day_history(pause_timestamp=pause_timestamp)
 
         # Calculate trend analysis
         trend_data = PostureAnalytics.calculate_trend(history)
