@@ -668,37 +668,62 @@ class TrayApp:
                             if hasattr(self.backend.cv_pipeline, 'alert_manager') and self.backend.cv_pipeline.alert_manager:
                                 monitoring_paused = self.backend.cv_pipeline.alert_manager.monitoring_paused
 
+                        # ENTERPRISE FIX: High-quality text rendering with background
+                        def draw_text_with_background(img, text, pos, font_scale, color, thickness, bg_color=(0, 0, 0, 180)):
+                            """Draw text with semi-transparent background for better readability."""
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            # Get text size
+                            (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+                            # Draw background rectangle
+                            padding = 5
+                            cv2.rectangle(
+                                img,
+                                (pos[0] - padding, pos[1] - text_height - padding),
+                                (pos[0] + text_width + padding, pos[1] + baseline + padding),
+                                bg_color[:3],  # Use RGB only (ignore alpha)
+                                -1  # Filled
+                            )
+                            # Draw text with anti-aliasing
+                            cv2.putText(
+                                img,
+                                text,
+                                pos,
+                                font,
+                                font_scale,
+                                color,
+                                thickness,
+                                cv2.LINE_AA  # Anti-aliasing for smooth text
+                            )
+
                         # Add monitoring status overlay
                         if monitoring_paused:
-                            # Large "MONITORING PAUSED" text
-                            cv2.putText(
+                            # Large "MONITORING PAUSED" text with prominent background
+                            draw_text_with_background(
                                 frame,
                                 "MONITORING PAUSED",
                                 (10, 100),
-                                cv2.FONT_HERSHEY_SIMPLEX,
                                 1.2,
                                 (0, 165, 255),  # Orange
-                                3
+                                3,
+                                (0, 0, 0, 200)  # Dark semi-transparent background
                             )
 
                         # Add text overlay
-                        cv2.putText(
+                        draw_text_with_background(
                             frame,
                             "DeskPulse Camera Feed",
                             (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX,
                             0.7,
-                            (0, 255, 0),
+                            (0, 255, 0),  # Green
                             2
                         )
 
-                        cv2.putText(
+                        draw_text_with_background(
                             frame,
                             "Press Q or ESC to close",
                             (10, 60),
-                            cv2.FONT_HERSHEY_SIMPLEX,
                             0.5,
-                            (255, 255, 255),
+                            (255, 255, 255),  # White
                             1
                         )
 

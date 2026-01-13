@@ -253,12 +253,16 @@ class CVPipeline:
 
         try:
             # SocketIO emit for Pi mode (multi-client web dashboard)
-            if socketio:
+            # CRITICAL FIX: Check if socketio exists AND is initialized
+            # In standalone mode, socketio object exists but is uninitialized
+            if socketio and hasattr(socketio, 'server') and socketio.server is not None:
                 socketio.emit(
                     'camera_status',
                     {'state': state, 'timestamp': datetime.now().isoformat()}
                 )
-            logger.info(f"Camera status emitted via SocketIO: {state}")
+                logger.info(f"Camera status emitted via SocketIO: {state}")
+            else:
+                logger.debug(f"SocketIO not available (standalone mode), using callbacks only")
 
         except Exception as e:
             # Don't crash if SocketIO emit fails (standalone mode)
@@ -387,10 +391,29 @@ class CVPipeline:
                 # inference
                 detection_result = self.detector.detect_landmarks(frame)
 
+                # DIAGNOSTIC LOGGING: Track detection status (every 10th frame to avoid spam)
+                frame_count = getattr(self, '_frame_count', 0)
+                self._frame_count = frame_count + 1
+                if self._frame_count % 10 == 0:  # Log every 10th frame (once per second at 10fps)
+                    if detection_result['user_present']:
+                        if detection_result['landmarks'] is not None:
+                            logger.info(f"✓ Pose detected: confidence={detection_result['confidence']:.2f}")
+                        else:
+                            logger.warning(f"✗ User present but no landmarks detected (low confidence or partial view)")
+                    else:
+                        logger.info(f"✗ No user detected in frame")
+
                 # Step 3: Classify posture (Story 2.3)
                 posture_state = self.classifier.classify_posture(
                     detection_result['landmarks']
                 )
+
+                # DIAGNOSTIC LOGGING: Track classification result (same rate limiting)
+                if self._frame_count % 10 == 0:
+                    if posture_state is not None:
+                        logger.info(f"✓ Posture classified: {posture_state}")
+                    else:
+                        logger.warning(f"✗ Could not classify posture (landmarks={detection_result['landmarks'] is not None})")
 
                 # ==================================================
                 # Story 4.1: Posture Event Database Persistence
@@ -475,7 +498,8 @@ class CVPipeline:
 
                             # Browser notification (SocketIO for Pi mode)
                             # Story 8.4: Conditional SocketIO - only emit if available
-                            if socketio:
+                            # CRITICAL FIX: Check if socketio is initialized (has server attribute)
+                            if socketio and hasattr(socketio, 'server') and socketio.server is not None:
                                 logger.info(f"Emitting alert_triggered event via SocketIO...")
                                 try:
                                     socketio.emit('alert_triggered', {
@@ -516,7 +540,8 @@ class CVPipeline:
 
                             # Browser notification (SocketIO for Pi mode)
                             # Story 8.4: Conditional SocketIO - only emit if available
-                            if socketio:
+                            # CRITICAL FIX: Check if socketio is initialized (has server attribute)
+                            if socketio and hasattr(socketio, 'server') and socketio.server is not None:
                                 try:
                                     socketio.emit('posture_corrected', {
                                         'message': '✓ Good posture restored! Nice work!',

@@ -314,22 +314,79 @@ class BackendThread:
                 init_db(self.flask_app)  # CRITICAL FIX: Pass Flask app to init_db()
                 logger.info(f"Database initialized: {database_path}")
 
-            # Create Windows camera
+            # ENTERPRISE FIX: Auto-detect working camera with fallback
             camera_config = self.config.get('camera', {})
-            logger.info(f"Creating Windows camera: index={camera_config.get('index', 0)}, fps={camera_config.get('fps', 10)}")
-            camera = WindowsCamera(
-                camera_index=camera_config.get('index', 0),
-                fps=camera_config.get('fps', 10),
-                width=camera_config.get('width', 640),
-                height=camera_config.get('height', 480)
-            )
+            preferred_index = camera_config.get('index', 0)
+            fps = camera_config.get('fps', 10)
+            width = camera_config.get('width', 640)
+            height = camera_config.get('height', 480)
 
-            logger.info("Opening camera (MSMF may take 5-30 seconds)...")
-            camera_opened = camera.open()
+            # Try preferred camera index first, then fallback to other indices
+            camera_indices_to_try = [preferred_index]
+            # Add fallback indices (0-3) if not already in list
+            for fallback_idx in [0, 1, 2, 3]:
+                if fallback_idx not in camera_indices_to_try:
+                    camera_indices_to_try.append(fallback_idx)
 
-            if not camera_opened:
-                error_msg = "FATAL: Failed to open camera - No webcam detected or access denied"
+            camera = None
+            camera_opened = False
+            working_index = None
+
+            for camera_idx in camera_indices_to_try:
+                logger.info(f"Attempting camera index {camera_idx}...")
+                try:
+                    test_camera = WindowsCamera(
+                        camera_index=camera_idx,
+                        fps=fps,
+                        width=width,
+                        height=height
+                    )
+
+                    logger.info(f"Opening camera {camera_idx} (timeout: 45 seconds)...")
+
+                    # Try to open camera with 45-second timeout
+                    # If it hangs longer, skip to next camera
+                    import threading as thread_module
+                    camera_result = {'opened': False}
+
+                    def try_open():
+                        try:
+                            camera_result['opened'] = test_camera.open()
+                        except Exception as e:
+                            logger.warning(f"Camera {camera_idx} open() exception: {e}")
+                            camera_result['opened'] = False
+
+                    open_thread = thread_module.Thread(target=try_open, daemon=True)
+                    open_thread.start()
+                    open_thread.join(timeout=45)  # 45-second timeout
+
+                    if open_thread.is_alive():
+                        # Camera open is hanging - skip this camera
+                        logger.warning(f"✗ Camera {camera_idx} timed out after 45 seconds - trying next camera")
+                        continue
+
+                    camera_opened = camera_result['opened']
+
+                    if camera_opened:
+                        logger.info(f"✓ Camera {camera_idx} opened successfully!")
+                        camera = test_camera
+                        working_index = camera_idx
+                        break
+                    else:
+                        logger.warning(f"✗ Camera {camera_idx} failed to open")
+                        try:
+                            test_camera.release()
+                        except:
+                            pass
+
+                except Exception as e:
+                    logger.warning(f"✗ Camera {camera_idx} error: {e}")
+                    continue
+
+            if not camera_opened or camera is None:
+                error_msg = "FATAL: Failed to open any camera - No webcam detected or access denied"
                 logger.error(error_msg)
+                logger.error("Tried camera indices: " + ", ".join(str(i) for i in camera_indices_to_try))
                 logger.error("Please ensure:")
                 logger.error("1. A webcam is connected")
                 logger.error("2. No other application is using the camera")
@@ -337,6 +394,19 @@ class BackendThread:
                 self.running = False
                 self.camera_error = error_msg  # Store error for main thread
                 return
+
+            # Auto-update config if we used a different camera than configured
+            if working_index != preferred_index:
+                logger.info(f"✓ Auto-detected working camera: index {working_index} (was configured as {preferred_index})")
+                logger.info(f"Updating config to remember working camera...")
+                try:
+                    if 'camera' not in self.config:
+                        self.config['camera'] = {}
+                    self.config['camera']['index'] = working_index
+                    save_config(self.config)
+                    logger.info(f"✓ Config updated - will use camera {working_index} on next launch")
+                except Exception as e:
+                    logger.warning(f"Could not save camera config: {e}")
 
             logger.info("Camera opened successfully!")
             self.camera = camera  # Store camera reference for tray preview
