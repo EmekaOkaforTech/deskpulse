@@ -5,12 +5,7 @@
 import logging
 import math
 from typing import Optional, Tuple, Any
-
-try:
-    import mediapipe as mp
-except ImportError:
-    # MediaPipe not available - will be mocked in tests
-    mp = None
+from app.cv.pose_landmarks import PoseLandmarkIndex
 
 logger = logging.getLogger('deskpulse.cv')
 
@@ -52,21 +47,13 @@ class PostureClassifier:
                 self.GOOD_POSTURE_ANGLE_THRESHOLD
             )
 
-        # MediaPipe Pose solution for landmark constants
-        # Try to load from Solutions API, fallback to hardcoded indices
-        if mp:
-            try:
-                self.mp_pose = mp.solutions.pose
-            except (AttributeError, ImportError):
-                # Solutions API not available in Tasks API bundle - use hardcoded indices
-                self.mp_pose = None
-                logger.warning("MediaPipe Solutions API not available - using hardcoded landmark indices")
-        else:
-            # Mock for tests - landmark indices hardcoded
-            self.mp_pose = None
+        # Use explicit landmark constants (enterprise-grade, Tasks API compatible)
+        # No dependency on deprecated mp.solutions.pose
+        self.landmarks = PoseLandmarkIndex
 
         logger.info(
-            f"PostureClassifier initialized: angle_threshold={self.angle_threshold}°"
+            f"PostureClassifier initialized: angle_threshold={self.angle_threshold}° "
+            f"(using MediaPipe 33-point pose model)"
         )
 
     def classify_posture(
@@ -114,28 +101,14 @@ class PostureClassifier:
                 # Old Solutions API format: NormalizedLandmarkList protobuf
                 landmarks = landmarks.landmark
 
-            # Extract key landmarks using MediaPipe indices
-            # Landmark 0: NOSE
-            # Landmark 11: LEFT_SHOULDER
-            # Landmark 12: RIGHT_SHOULDER
-            # Landmark 23: LEFT_HIP
-            # Landmark 24: RIGHT_HIP
-
-            # Story 8.2: Tasks API returns landmarks as list (not protobuf)
-            # Access pattern changed from landmarks.landmark[enum] to landmarks[enum.value]
-            if self.mp_pose:
-                nose = landmarks[self.mp_pose.PoseLandmark.NOSE.value]
-                left_shoulder = landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value]
-                right_shoulder = landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-                left_hip = landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value]
-                right_hip = landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value]
-            else:
-                # Fallback for tests with mock landmarks (list access)
-                nose = landmarks[0]
-                left_shoulder = landmarks[11]
-                right_shoulder = landmarks[12]
-                left_hip = landmarks[23]
-                right_hip = landmarks[24]
+            # Extract key landmarks using explicit constants
+            # Tasks API returns landmarks as indexable list
+            # Using self.landmarks (PoseLandmarkIndex) for enterprise-grade clarity
+            nose = landmarks[self.landmarks.NOSE]
+            left_shoulder = landmarks[self.landmarks.LEFT_SHOULDER]
+            right_shoulder = landmarks[self.landmarks.RIGHT_SHOULDER]
+            left_hip = landmarks[self.landmarks.LEFT_HIP]
+            right_hip = landmarks[self.landmarks.RIGHT_HIP]
 
             # Calculate midpoint of shoulders (normalized coordinates 0.0-1.0)
             shoulder_x = (left_shoulder.x + right_shoulder.x) / 2
