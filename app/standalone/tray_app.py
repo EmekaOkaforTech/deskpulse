@@ -855,7 +855,14 @@ The system will begin collecting data as you work."""
                 try:
                     with self.backend.flask_app.app_context():
                         from app.data.analytics import PostureAnalytics
-                        history = PostureAnalytics.get_7_day_history()
+
+                        # Get pause_timestamp if monitoring is paused (CRITICAL for accurate today's stats)
+                        pause_timestamp = None
+                        if self.backend.cv_pipeline and self.backend.cv_pipeline.alert_manager:
+                            if self.backend.cv_pipeline.alert_manager.monitoring_paused:
+                                pause_timestamp = self.backend.cv_pipeline.alert_manager.pause_timestamp
+
+                        history = PostureAnalytics.get_7_day_history(pause_timestamp=pause_timestamp)
                 except Exception as e:
                     logger.exception(f"Error fetching 7-day history: {e}")
 
