@@ -434,7 +434,7 @@ class BackendThread:
                 time.sleep(1)
 
                 # Health check
-                if not self.cv_pipeline.is_running():
+                if not self.cv_pipeline.running:
                     logger.warning("CV pipeline stopped unexpectedly")
                     # Could restart or notify user
 

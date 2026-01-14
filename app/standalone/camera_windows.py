@@ -238,6 +238,15 @@ class WindowsCamera:
             logger.exception(f"Error reading frame: {e}")
             return False, None
 
+    def read_frame(self) -> Tuple[bool, Optional[np.ndarray]]:
+        """
+        Alias for read() - compatibility with CVPipeline interface.
+
+        Returns:
+            Tuple[bool, Optional[np.ndarray]]: (success, frame)
+        """
+        return self.read()
+
     def release(self):
         """Release camera resources."""
         if self.cap is not None:
