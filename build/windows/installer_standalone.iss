@@ -66,15 +66,19 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "..\..\dist\DeskPulse-Standalone\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-; Start Menu shortcuts
-Name: "{group}\DeskPulse"; Filename: "{app}\DeskPulse.exe"
-Name: "{group}\Uninstall DeskPulse"; Filename: "{uninstallexe}"
+; Start Menu shortcuts (inside DeskPulse folder)
+Name: "{group}\DeskPulse"; Filename: "{app}\DeskPulse.exe"; Comment: "Launch DeskPulse Posture Monitor"
+Name: "{group}\Uninstall DeskPulse"; Filename: "{uninstallexe}"; Comment: "Uninstall DeskPulse"
 
-; Auto-start shortcut (created only if user selects task)
-; Uses {commonstartup} for all users (requires admin) or {userstartup} for current user
+; Desktop shortcut (optional - user can select during install)
+Name: "{commondesktop}\DeskPulse"; Filename: "{app}\DeskPulse.exe"; Tasks: desktopicon; Comment: "Launch DeskPulse Posture Monitor"
+
+; Auto-start shortcut (optional - created only if user selects task)
 Name: "{commonstartup}\DeskPulse"; Filename: "{app}\DeskPulse.exe"; Tasks: startupicon
 
 [Tasks]
+; Desktop shortcut option (checked by default for visibility)
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: checked
 ; Auto-start option (unchecked by default - user opt-in)
 Name: "startupicon"; Description: "Start DeskPulse automatically when Windows starts"; GroupDescription: "Startup Options:"; Flags: unchecked
 
