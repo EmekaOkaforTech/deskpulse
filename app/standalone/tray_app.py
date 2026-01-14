@@ -216,6 +216,7 @@ class TrayApp:
             ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("View Camera Feed", self._show_camera_preview),
+            pystray.MenuItem("Select Camera", self._select_camera),
             pystray.MenuItem("Today's Stats", self._show_stats),
             pystray.MenuItem("7-Day History", self._show_history),
             pystray.Menu.SEPARATOR,
@@ -1057,6 +1058,72 @@ Data will appear here as you accumulate daily statistics."""
                 title="⚠️ Error",
                 message=f"Failed to retrieve history: {e}",
                 duration="short"
+            )
+
+    def _select_camera(self):
+        """Show camera selection dialog and switch camera."""
+        try:
+            from app.standalone.camera_windows import detect_cameras_with_names
+            from app.standalone.camera_selection_dialog import show_camera_selection_dialog
+            from app.standalone.config import load_config, save_config
+
+            logger.info("Opening camera selection dialog...")
+
+            # Detect available cameras
+            cameras = detect_cameras_with_names()
+
+            if not cameras:
+                show_message_box(
+                    "DeskPulse - No Cameras Found",
+                    "No cameras were detected on this system.\n\n"
+                    "Please ensure your camera is properly connected.",
+                    0  # MB_OK
+                )
+                return
+
+            # Get current selection from config
+            config = load_config()
+            current_index = config.get('camera', {}).get('index', 0)
+
+            # Show dialog
+            selected_index = show_camera_selection_dialog(cameras, current_index)
+
+            if selected_index is None:
+                logger.info("Camera selection cancelled")
+                return
+
+            if selected_index == current_index:
+                logger.info(f"Same camera selected (index {selected_index}), no change needed")
+                return
+
+            # Find selected camera name
+            selected_camera = next((c for c in cameras if c['index'] == selected_index), None)
+            camera_name = selected_camera['name'] if selected_camera else f"Camera {selected_index}"
+
+            # Update config
+            if 'camera' not in config:
+                config['camera'] = {}
+            config['camera']['index'] = selected_index
+            config['camera']['name'] = camera_name
+            save_config(config)
+
+            logger.info(f"Camera selection saved: {camera_name} (index {selected_index})")
+
+            # Notify user to restart
+            show_message_box(
+                "DeskPulse - Camera Changed",
+                f"Camera changed to:\n{camera_name} (index {selected_index})\n\n"
+                "Please restart DeskPulse for the change to take effect.\n\n"
+                "Use 'Quit DeskPulse' from the tray menu, then relaunch.",
+                0  # MB_OK
+            )
+
+        except Exception as e:
+            logger.exception(f"Error in camera selection: {e}")
+            show_message_box(
+                "DeskPulse - Error",
+                f"Failed to open camera selection:\n{str(e)}",
+                0  # MB_OK
             )
 
     def _show_settings(self):
