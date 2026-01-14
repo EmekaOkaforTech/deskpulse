@@ -314,12 +314,53 @@ class BackendThread:
                 init_db(self.flask_app)  # CRITICAL FIX: Pass Flask app to init_db()
                 logger.info(f"Database initialized: {database_path}")
 
-            # ENTERPRISE FIX: Auto-detect working camera with fallback
+            # ENTERPRISE FIX: Camera selection with user dialog on first launch
+            from app.standalone.camera_windows import detect_cameras_with_names
+            from app.standalone.camera_selection_dialog import show_camera_selection_dialog
+
             camera_config = self.config.get('camera', {})
-            preferred_index = camera_config.get('index', 0)
             fps = camera_config.get('fps', 10)
             width = camera_config.get('width', 640)
             height = camera_config.get('height', 480)
+
+            # Check if user has previously selected a camera
+            has_saved_camera = 'index' in camera_config and 'name' in camera_config
+            preferred_index = camera_config.get('index', 0)
+
+            # ENTERPRISE: On first launch, detect cameras and prompt user if multiple found
+            if not has_saved_camera:
+                logger.info("First launch detected - scanning for available cameras...")
+                available_cameras = detect_cameras_with_names()
+
+                if len(available_cameras) > 1:
+                    logger.info(f"Multiple cameras detected ({len(available_cameras)}) - showing selection dialog")
+
+                    # Show camera selection dialog
+                    selected_index = show_camera_selection_dialog(available_cameras, preferred_index)
+
+                    if selected_index is not None:
+                        preferred_index = selected_index
+                        # Save selection to config
+                        selected_camera = next((c for c in available_cameras if c['index'] == selected_index), None)
+                        camera_name = selected_camera['name'] if selected_camera else f"Camera {selected_index}"
+
+                        if 'camera' not in self.config:
+                            self.config['camera'] = {}
+                        self.config['camera']['index'] = selected_index
+                        self.config['camera']['name'] = camera_name
+                        save_config(self.config)
+                        logger.info(f"User selected camera: {camera_name} (index {selected_index})")
+                    else:
+                        logger.info("User cancelled camera selection, using default")
+                elif len(available_cameras) == 1:
+                    # Single camera - auto-select and save
+                    preferred_index = available_cameras[0]['index']
+                    if 'camera' not in self.config:
+                        self.config['camera'] = {}
+                    self.config['camera']['index'] = preferred_index
+                    self.config['camera']['name'] = available_cameras[0]['name']
+                    save_config(self.config)
+                    logger.info(f"Single camera auto-selected: {available_cameras[0]['name']}")
 
             # Try preferred camera index first, then fallback to other indices
             camera_indices_to_try = [preferred_index]
