@@ -295,7 +295,7 @@ class BackendThread:
             logger.info("Backend thread running")
 
             # Import here to avoid circular imports
-            from app.standalone.config import get_database_path
+            from app.standalone.config import get_database_path, save_config
             from app import create_app
             from app.cv.pipeline import CVPipeline
             from app.standalone.camera_windows import WindowsCamera
@@ -319,33 +319,34 @@ class BackendThread:
             import ctypes
 
             def show_camera_selection_native(cameras, current_index=0):
-                """Show camera selection using native Windows MessageBox (no tkinter needed)."""
+                """
+                Enterprise-grade camera selection using native Windows MessageBox.
+                Shows each camera one by one - user clicks YES to select, NO to see next.
+                """
                 if not cameras:
                     return None
                 if len(cameras) == 1:
                     return cameras[0]['index']
 
-                # Build camera list message
-                camera_list = "\n".join([f"  {i+1}. {c['name']} (index {c['index']})" for i, c in enumerate(cameras)])
-                message = f"Multiple cameras detected:\n\n{camera_list}\n\nClick YES to cycle through cameras,\nNO to use the first one."
-
-                # MB_YESNO = 4, MB_ICONQUESTION = 32, MB_SYSTEMMODAL = 4096
-                result = ctypes.windll.user32.MessageBoxW(0, message, "DeskPulse - Select Camera", 4 | 32 | 4096)
-
-                if result == 7:  # IDNO - use first camera
-                    return cameras[0]['index']
-
-                # Cycle through cameras with Yes/No for each
-                for camera in cameras:
-                    msg = f"Use this camera?\n\n{camera['name']}\n(Index: {camera['index']})"
-                    # MB_YESNOCANCEL = 3
-                    res = ctypes.windll.user32.MessageBoxW(0, msg, "DeskPulse - Select Camera", 3 | 32 | 4096)
+                # Show each camera - first YES wins
+                total = len(cameras)
+                for i, camera in enumerate(cameras):
+                    position = f"Camera {i+1} of {total}"
+                    msg = (
+                        f"{position}\n"
+                        f"─────────────────────────\n\n"
+                        f"Name: {camera['name']}\n\n"
+                        f"─────────────────────────\n\n"
+                        f"YES = Use this camera\n"
+                        f"NO = Show next camera"
+                    )
+                    # MB_YESNO = 4, MB_ICONQUESTION = 32, MB_TOPMOST = 262144
+                    res = ctypes.windll.user32.MessageBoxW(0, msg, "DeskPulse - Select Camera", 4 | 32 | 262144)
                     if res == 6:  # IDYES
                         return camera['index']
-                    elif res == 2:  # IDCANCEL
-                        return cameras[0]['index']  # Default to first
 
-                return cameras[0]['index']  # Default if none selected
+                # If user clicked NO for all, use the last one shown
+                return cameras[-1]['index']
 
             camera_config = self.config.get('camera', {})
             fps = camera_config.get('fps', 10)
