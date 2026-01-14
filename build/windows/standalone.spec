@@ -66,6 +66,10 @@ a = Analysis(
         'app.standalone.camera_permissions',
         'app.standalone.camera_error_handler',
 
+        # === Tkinter for Camera Selection Dialog ===
+        'tkinter',
+        'tkinter.ttk',
+
         # === Backend Framework (INCLUDED - Story 8.1) ===
         'flask',
         'flask.app',
