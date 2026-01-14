@@ -412,17 +412,19 @@ class BackendThread:
             self.camera = camera  # Store camera reference for tray preview
 
             # Create CV pipeline with Windows camera
-            self.cv_pipeline = CVPipeline(
-                camera=camera,
-                app=self.flask_app
-            )
+            # CRITICAL: Must use Flask app context for CVPipeline initialization
+            with self.flask_app.app_context():
+                self.cv_pipeline = CVPipeline(
+                    camera=camera,
+                    app=self.flask_app
+                )
 
-            # Pass backend reference for IPC callbacks (Story 8.4)
-            self.cv_pipeline.backend_thread = self
+                # Pass backend reference for IPC callbacks (Story 8.4)
+                self.cv_pipeline.backend_thread = self
 
-            # Start CV pipeline
-            self.cv_pipeline.start()
-            logger.info("CV pipeline started")
+                # Start CV pipeline
+                self.cv_pipeline.start()
+                logger.info("CV pipeline started")
 
             # Start Flask server in separate thread (for dashboard access)
             self._start_flask_server()
