@@ -648,19 +648,95 @@ class TrayApp:
                         if landmarks:
                             # Determine skeleton color based on posture
                             if posture_state == 'good':
-                                skeleton_color = (0, 255, 0)  # Green
+                                skeleton_color = (0, 255, 0)  # Green BGR
+                                joint_color = (0, 200, 0)     # Slightly darker green for joints
                             elif posture_state == 'bad':
-                                skeleton_color = (0, 0, 255)  # Red
+                                skeleton_color = (0, 0, 255)  # Red BGR
+                                joint_color = (0, 0, 200)     # Slightly darker red for joints
                             else:
-                                skeleton_color = (255, 255, 0)  # Yellow (unknown)
+                                skeleton_color = (255, 255, 0)  # Cyan (unknown)
+                                joint_color = (200, 200, 0)     # Slightly darker cyan for joints
 
-                            # Draw landmarks manually (simplified - just key points)
                             h, w, _ = frame.shape
-                            for i, lm in enumerate(landmarks):
-                                # Draw landmark points
+
+                            # ENTERPRISE-GRADE: MediaPipe Pose Connections
+                            # Full skeleton visualization with 33 landmarks connected properly
+                            POSE_CONNECTIONS = [
+                                # Face
+                                (0, 1), (1, 2), (2, 3), (3, 7),  # Left eye
+                                (0, 4), (4, 5), (5, 6), (6, 8),  # Right eye
+                                (9, 10),  # Mouth
+                                # Torso
+                                (11, 12),  # Shoulders
+                                (11, 23), (12, 24),  # Shoulders to hips
+                                (23, 24),  # Hips
+                                # Left arm
+                                (11, 13), (13, 15),  # Shoulder -> elbow -> wrist
+                                (15, 17), (15, 19), (15, 21),  # Wrist to fingers
+                                (17, 19),  # Thumb to pinky connection
+                                # Right arm
+                                (12, 14), (14, 16),  # Shoulder -> elbow -> wrist
+                                (16, 18), (16, 20), (16, 22),  # Wrist to fingers
+                                (18, 20),  # Thumb to pinky connection
+                                # Left leg
+                                (23, 25), (25, 27),  # Hip -> knee -> ankle
+                                (27, 29), (27, 31), (29, 31),  # Ankle to foot
+                                # Right leg
+                                (24, 26), (26, 28),  # Hip -> knee -> ankle
+                                (28, 30), (28, 32), (30, 32),  # Ankle to foot
+                            ]
+
+                            # Convert landmarks to pixel coordinates once
+                            landmark_points = []
+                            for lm in landmarks:
                                 x = int(lm.x * w)
                                 y = int(lm.y * h)
-                                cv2.circle(frame, (x, y), 3, skeleton_color, -1)
+                                # Only include if within frame bounds
+                                if 0 <= x < w and 0 <= y < h:
+                                    landmark_points.append((x, y, lm.visibility if hasattr(lm, 'visibility') else 1.0))
+                                else:
+                                    landmark_points.append(None)
+
+                            # Draw connections (skeleton lines) FIRST (so joints appear on top)
+                            for connection in POSE_CONNECTIONS:
+                                start_idx, end_idx = connection
+                                if start_idx < len(landmark_points) and end_idx < len(landmark_points):
+                                    start_pt = landmark_points[start_idx]
+                                    end_pt = landmark_points[end_idx]
+                                    if start_pt is not None and end_pt is not None:
+                                        # Only draw if both landmarks are visible enough
+                                        start_vis = start_pt[2] if len(start_pt) > 2 else 1.0
+                                        end_vis = end_pt[2] if len(end_pt) > 2 else 1.0
+                                        if start_vis > 0.3 and end_vis > 0.3:
+                                            # Draw thick anti-aliased line for skeleton
+                                            cv2.line(
+                                                frame,
+                                                (start_pt[0], start_pt[1]),
+                                                (end_pt[0], end_pt[1]),
+                                                skeleton_color,
+                                                3,  # Line thickness
+                                                cv2.LINE_AA  # Anti-aliasing
+                                            )
+
+                            # Draw landmark points (joints) on top of lines
+                            # Key joints get larger circles for emphasis
+                            KEY_JOINTS = {11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28}  # Shoulders, elbows, wrists, hips, knees, ankles
+                            FACE_JOINTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}  # Face landmarks
+
+                            for i, pt in enumerate(landmark_points):
+                                if pt is not None:
+                                    visibility = pt[2] if len(pt) > 2 else 1.0
+                                    if visibility > 0.3:  # Only draw visible landmarks
+                                        if i in KEY_JOINTS:
+                                            # Large circles for key joints (shoulders, elbows, wrists, hips, knees, ankles)
+                                            cv2.circle(frame, (pt[0], pt[1]), 8, joint_color, -1, cv2.LINE_AA)
+                                            cv2.circle(frame, (pt[0], pt[1]), 8, (255, 255, 255), 1, cv2.LINE_AA)  # White outline
+                                        elif i in FACE_JOINTS:
+                                            # Smaller circles for face landmarks
+                                            cv2.circle(frame, (pt[0], pt[1]), 3, skeleton_color, -1, cv2.LINE_AA)
+                                        else:
+                                            # Medium circles for other landmarks (hands, feet)
+                                            cv2.circle(frame, (pt[0], pt[1]), 5, joint_color, -1, cv2.LINE_AA)
 
                         # Check if monitoring is paused
                         monitoring_paused = False
