@@ -62,13 +62,8 @@ a = Analysis(
 
         # === Windows Integration (Story 8.3) ===
         'app.standalone.camera_windows',
-        'app.standalone.camera_selection_dialog',
         'app.standalone.camera_permissions',
         'app.standalone.camera_error_handler',
-
-        # === Tkinter for Camera Selection Dialog ===
-        'tkinter',
-        'tkinter.ttk',
 
         # === Backend Framework (INCLUDED - Story 8.1) ===
         'flask',

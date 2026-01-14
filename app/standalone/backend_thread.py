@@ -314,9 +314,38 @@ class BackendThread:
                 init_db(self.flask_app)  # CRITICAL FIX: Pass Flask app to init_db()
                 logger.info(f"Database initialized: {database_path}")
 
-            # ENTERPRISE FIX: Camera selection with user dialog on first launch
+            # ENTERPRISE FIX: Camera selection with native Windows dialog on first launch
             from app.standalone.camera_windows import detect_cameras_with_names
-            from app.standalone.camera_selection_dialog import show_camera_selection_dialog
+            import ctypes
+
+            def show_camera_selection_native(cameras, current_index=0):
+                """Show camera selection using native Windows MessageBox (no tkinter needed)."""
+                if not cameras:
+                    return None
+                if len(cameras) == 1:
+                    return cameras[0]['index']
+
+                # Build camera list message
+                camera_list = "\n".join([f"  {i+1}. {c['name']} (index {c['index']})" for i, c in enumerate(cameras)])
+                message = f"Multiple cameras detected:\n\n{camera_list}\n\nClick YES to cycle through cameras,\nNO to use the first one."
+
+                # MB_YESNO = 4, MB_ICONQUESTION = 32, MB_SYSTEMMODAL = 4096
+                result = ctypes.windll.user32.MessageBoxW(0, message, "DeskPulse - Select Camera", 4 | 32 | 4096)
+
+                if result == 7:  # IDNO - use first camera
+                    return cameras[0]['index']
+
+                # Cycle through cameras with Yes/No for each
+                for camera in cameras:
+                    msg = f"Use this camera?\n\n{camera['name']}\n(Index: {camera['index']})"
+                    # MB_YESNOCANCEL = 3
+                    res = ctypes.windll.user32.MessageBoxW(0, msg, "DeskPulse - Select Camera", 3 | 32 | 4096)
+                    if res == 6:  # IDYES
+                        return camera['index']
+                    elif res == 2:  # IDCANCEL
+                        return cameras[0]['index']  # Default to first
+
+                return cameras[0]['index']  # Default if none selected
 
             camera_config = self.config.get('camera', {})
             fps = camera_config.get('fps', 10)
@@ -335,8 +364,8 @@ class BackendThread:
                 if len(available_cameras) > 1:
                     logger.info(f"Multiple cameras detected ({len(available_cameras)}) - showing selection dialog")
 
-                    # Show camera selection dialog
-                    selected_index = show_camera_selection_dialog(available_cameras, preferred_index)
+                    # Show camera selection dialog (native Windows - no tkinter)
+                    selected_index = show_camera_selection_native(available_cameras, preferred_index)
 
                     if selected_index is not None:
                         preferred_index = selected_index

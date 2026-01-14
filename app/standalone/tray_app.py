@@ -1061,10 +1061,9 @@ Data will appear here as you accumulate daily statistics."""
             )
 
     def _select_camera(self):
-        """Show camera selection dialog and switch camera."""
+        """Show camera selection dialog and switch camera (native Windows - no tkinter)."""
         try:
             from app.standalone.camera_windows import detect_cameras_with_names
-            from app.standalone.camera_selection_dialog import show_camera_selection_dialog
             from app.standalone.config import load_config, save_config
 
             logger.info("Opening camera selection dialog...")
@@ -1085,11 +1084,22 @@ Data will appear here as you accumulate daily statistics."""
             config = load_config()
             current_index = config.get('camera', {}).get('index', 0)
 
-            # Show dialog
-            selected_index = show_camera_selection_dialog(cameras, current_index)
+            # Native Windows camera selection using MessageBox
+            selected_index = None
+            for camera in cameras:
+                is_current = " (CURRENT)" if camera['index'] == current_index else ""
+                msg = f"Use this camera?\n\n{camera['name']}{is_current}\n(Index: {camera['index']})\n\nYES = Select this camera\nNO = Show next camera\nCANCEL = Keep current"
+                # MB_YESNOCANCEL = 3, MB_ICONQUESTION = 32, MB_SYSTEMMODAL = 4096
+                res = ctypes.windll.user32.MessageBoxW(0, msg, "DeskPulse - Select Camera", 3 | 32 | 4096)
+                if res == 6:  # IDYES
+                    selected_index = camera['index']
+                    break
+                elif res == 2:  # IDCANCEL
+                    logger.info("Camera selection cancelled")
+                    return
 
             if selected_index is None:
-                logger.info("Camera selection cancelled")
+                logger.info("No camera selected, keeping current")
                 return
 
             if selected_index == current_index:
