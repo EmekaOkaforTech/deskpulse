@@ -77,8 +77,8 @@ Name: "{commondesktop}\DeskPulse"; Filename: "{app}\DeskPulse.exe"; Tasks: deskt
 Name: "{commonstartup}\DeskPulse"; Filename: "{app}\DeskPulse.exe"; Tasks: startupicon
 
 [Tasks]
-; Desktop shortcut option (checked by default for visibility)
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: checked
+; Desktop shortcut option (checked by default)
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"
 ; Auto-start option (unchecked by default - user opt-in)
 Name: "startupicon"; Description: "Start DeskPulse automatically when Windows starts"; GroupDescription: "Startup Options:"; Flags: unchecked
 
