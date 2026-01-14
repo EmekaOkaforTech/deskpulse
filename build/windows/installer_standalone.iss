@@ -27,8 +27,8 @@ DefaultDirName={autopf}\DeskPulse
 DefaultGroupName=DeskPulse
 DisableProgramGroupPage=yes
 
-; Output configuration
-OutputDir=build\windows\Output
+; Output configuration (relative to .iss file location in build\windows)
+OutputDir=Output
 OutputBaseFilename=DeskPulse-Standalone-Setup-v2.0.0
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -42,7 +42,7 @@ ArchitecturesInstallIn64BitMode=x64
 
 ; Visual style
 WizardStyle=modern
-SetupIconFile=assets\windows\icon_professional.ico
+SetupIconFile=..\..\assets\windows\icon_professional.ico
 UninstallDisplayIcon={app}\DeskPulse.exe
 UninstallDisplayName=DeskPulse Standalone Edition
 
