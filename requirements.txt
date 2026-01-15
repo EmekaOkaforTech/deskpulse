@@ -1,30 +1,21 @@
+# DeskPulse - Raspberry Pi Requirements
+# Python 3.9+ compatible
+
+# Web Framework
 flask==3.0.0
 flask-socketio==5.3.5
-flask-talisman==1.1.0  # Enterprise security: CSP headers, HSTS, security hardening
+flask-talisman==1.1.0
 python-socketio==5.10.0
-opencv-python>=4.8.0,<4.10.0  # Compatible with numpy<2
-mediapipe==0.10.31; platform_machine == 'x86_64' or platform_machine == 'AMD64'  # Story 8.2 - Windows/x64 platforms
-mediapipe==0.10.18; platform_machine == 'aarch64'  # Story 8.2 - ARM64 (Pi) platforms
-numpy<2  # Required by MediaPipe
+
+# Computer Vision
+opencv-python>=4.8.0,<4.10.0
+mediapipe==0.10.18
+numpy<2
+
+# System Integration
 sdnotify>=0.3.2
-schedule>=1.2.0  # Story 4.6 - Daily task scheduler for end-of-day summaries
+schedule>=1.2.0
 systemd-python>=235
-# NOTE: MediaPipe Tasks API migration (Story 8.2) - Platform-Specific Versions
-# RATIONALE: MediaPipe 0.10.31 does NOT exist for ARM64 (Raspberry Pi)
-# - ARM64 maxes out at 0.10.18 (latest available for this architecture)
-# - x64 (Windows/Linux) can use 0.10.31 (latest available)
-# - BOTH versions include Tasks API (mediapipe.tasks.python.vision.PoseLandmarker)
-# - This is NOT an incomplete upgrade - it's a platform limitation
-# - Tasks API migration achieved on BOTH platforms successfully
 
-# Windows Desktop Client (Story 7.1)
-pystray>=0.19.4; sys_platform == 'win32'
-Pillow>=10.0.0; sys_platform == 'win32'
-winotify>=1.1.0; sys_platform == 'win32'  # Modern replacement for win10toast
-pywin32>=306; sys_platform == 'win32'  # Windows API (mutex, MessageBox)
-requests>=2.31.0  # HTTP requests for stats API (cross-platform)
-
-# Development & Testing (Story 8.1)
-pytest>=9.0.0  # Unit testing framework
-pytest-cov>=7.0.0  # Test coverage measurement
-pytest-flask>=1.3.0  # Flask testing utilities
+# HTTP Client
+requests>=2.31.0
