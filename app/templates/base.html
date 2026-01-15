@@ -14,9 +14,12 @@
 
     <!-- SocketIO client v4.5.4 - Real-time bidirectional communication -->
     <!-- Enterprise Security: SRI integrity hash prevents CDN tampering -->
+    <!-- Skip in standalone mode - uses REST API polling instead -->
+    {% if not config.get('STANDALONE_MODE') %}
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
             integrity="sha384-/KNQL8Nu5gCHLqwqfQjA689Hhoqgi2S84SNUxC3roTe4EhJ9AfLkp8QiQcU8AMzI"
             crossorigin="anonymous"></script>
+    {% endif %}
 
     <!-- Custom styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
@@ -110,7 +113,7 @@
 
     <footer class="container privacy-footer">
         <small>
-            🔒 Privacy-First Monitoring · 100% Local Processing · No Cloud Uploads
+            🔒 Privacy-First Monitoring · 100% Local Processing · No Cloud Uploads · © 2026 EmekaOkaforTech
         </small>
     </footer>
 

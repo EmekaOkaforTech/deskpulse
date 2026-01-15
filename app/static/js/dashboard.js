@@ -3,6 +3,7 @@
  *
  * Story 2.5: Static placeholder stubs
  * Story 2.6: SocketIO real-time updates ACTIVATED
+ * Story 8.6: Standalone mode support with REST polling fallback
  */
 
 // Debug mode - controlled by URL parameter or localStorage
@@ -17,6 +18,10 @@ if (DEBUG) {
 // Initialize SocketIO connection on page load
 let socket;
 
+// Standalone mode flag - set when SocketIO is unavailable
+let standaloneMode = false;
+let pollingInterval = null;
+
 // Track monitoring state to prevent posture updates from overwriting paused UI
 // Story 3.4: Prevents race condition where posture_update events (10 FPS)
 // overwrite the "Monitoring Paused" UI immediately after pause
@@ -24,13 +29,7 @@ let socket;
 let monitoringActive = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DeskPulse Dashboard loaded - initializing SocketIO...');
-
-    // Initialize SocketIO client (connects to same host as page)
-    socket = io();
-
-    // Initialize network settings toggle
-    initializeNetworkSettings();
+    console.log('DeskPulse Dashboard loaded - initializing...');
 
     // Initialize browser notifications (Story 3.3)
     initBrowserNotifications();
@@ -38,9 +37,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize pause/resume controls (Story 3.4)
     initPauseResumeControls();
 
+    // Check if SocketIO library is available (not loaded in standalone mode)
+    if (typeof io === 'undefined') {
+        console.log('SocketIO library not available - entering standalone mode');
+        enterStandaloneMode();
+        return;
+    }
+
+    // Initialize SocketIO client (connects to same host as page)
+    console.log('Initializing SocketIO connection...');
+    socket = io();
+
+    // Initialize network settings toggle (only in Pi mode with SocketIO)
+    initializeNetworkSettings();
+
+    // Connection timeout - switch to standalone mode if no connection in 5 seconds
+    let connectionTimeout = setTimeout(function() {
+        if (!socket.connected) {
+            console.log('SocketIO connection timeout - entering standalone mode');
+            enterStandaloneMode();
+        }
+    }, 5000);
+
     // Connection event handlers
     socket.on('connect', function() {
         if (DEBUG) console.log('SocketIO connected:', socket.id);
+        clearTimeout(connectionTimeout);
         updateConnectionStatus('connected');
     });
 
@@ -62,7 +84,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     socket.on('connect_error', function(error) {
         console.error('Connection error:', error);
-        updateConnectionStatus('error');
+        // Don't show error immediately - let timeout handle standalone mode detection
+        if (standaloneMode) {
+            return;  // Already in standalone mode
+        }
     });
 
     socket.on('status', function(data) {
@@ -1415,7 +1440,7 @@ function clearDashboardAlert() {
 
 /**
  * Initialize pause/resume monitoring controls - Story 3.4 Task 3.
- * Sets up button click handlers and SocketIO connection state management.
+ * Sets up button click handlers for both SocketIO (Pi) and REST API (Standalone).
  */
 function initPauseResumeControls() {
     const pauseBtn = document.getElementById('pause-btn');
@@ -1429,54 +1454,88 @@ function initPauseResumeControls() {
 
     // Pause button click handler
     pauseBtn.addEventListener('click', function() {
-        // Check SocketIO connection
-        if (!socket || !socket.connected) {
-            console.warn('SocketIO not connected - cannot pause monitoring');
-            showToast('Connection error - please try again', 'error');
-            return;
-        }
-
         // Optimistic UI: Show loading state immediately
         pauseBtn.disabled = true;
         const originalText = pauseBtn.textContent;
         pauseBtn.textContent = '⏸ Pausing...';
 
-        socket.emit('pause_monitoring');
-        if (DEBUG) console.log('Pause monitoring requested');
+        // Use REST API in standalone mode, SocketIO otherwise
+        if (standaloneMode || !socket || !socket.connected) {
+            // REST API for standalone mode
+            fetch('/api/monitoring/pause', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (DEBUG) console.log('Monitoring paused via REST API');
+                        // Immediately update UI
+                        pollMonitoringStatus();
+                    } else {
+                        console.error('Failed to pause:', data.error);
+                        pauseBtn.disabled = false;
+                        pauseBtn.textContent = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Pause request failed:', error);
+                    pauseBtn.disabled = false;
+                    pauseBtn.textContent = originalText;
+                });
+        } else {
+            // SocketIO for Pi mode
+            socket.emit('pause_monitoring');
+            if (DEBUG) console.log('Pause monitoring requested via SocketIO');
 
-        // Re-enable button after timeout (safety fallback if broadcast fails)
-        setTimeout(function() {
-            if (pauseBtn.disabled) {
-                pauseBtn.disabled = false;
-                pauseBtn.textContent = originalText;
-            }
-        }, 3000);
+            // Re-enable button after timeout (safety fallback if broadcast fails)
+            setTimeout(function() {
+                if (pauseBtn.disabled) {
+                    pauseBtn.disabled = false;
+                    pauseBtn.textContent = originalText;
+                }
+            }, 3000);
+        }
     });
 
     // Resume button click handler
     resumeBtn.addEventListener('click', function() {
-        // Check SocketIO connection
-        if (!socket || !socket.connected) {
-            console.warn('SocketIO not connected - cannot resume monitoring');
-            showToast('Connection error - please try again', 'error');
-            return;
-        }
-
         // Optimistic UI: Show loading state immediately
         resumeBtn.disabled = true;
         const originalText = resumeBtn.textContent;
         resumeBtn.textContent = '▶️ Resuming...';
 
-        socket.emit('resume_monitoring');
-        if (DEBUG) console.log('Resume monitoring requested');
+        // Use REST API in standalone mode, SocketIO otherwise
+        if (standaloneMode || !socket || !socket.connected) {
+            // REST API for standalone mode
+            fetch('/api/monitoring/resume', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (DEBUG) console.log('Monitoring resumed via REST API');
+                        // Immediately update UI
+                        pollMonitoringStatus();
+                    } else {
+                        console.error('Failed to resume:', data.error);
+                        resumeBtn.disabled = false;
+                        resumeBtn.textContent = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Resume request failed:', error);
+                    resumeBtn.disabled = false;
+                    resumeBtn.textContent = originalText;
+                });
+        } else {
+            // SocketIO for Pi mode
+            socket.emit('resume_monitoring');
+            if (DEBUG) console.log('Resume monitoring requested via SocketIO');
 
-        // Re-enable button after timeout (safety fallback if broadcast fails)
-        setTimeout(function() {
-            if (resumeBtn.disabled) {
-                resumeBtn.disabled = false;
-                resumeBtn.textContent = originalText;
-            }
-        }, 3000);
+            // Re-enable button after timeout (safety fallback if broadcast fails)
+            setTimeout(function() {
+                if (resumeBtn.disabled) {
+                    resumeBtn.disabled = false;
+                    resumeBtn.textContent = originalText;
+                }
+            }, 3000);
+        }
     });
 
     if (DEBUG) console.log('Pause/resume controls initialized');
@@ -1485,7 +1544,7 @@ function initPauseResumeControls() {
 
 /**
  * Update monitoring UI based on monitoring_status event - Story 3.4 Task 3.
- * Handles pause/resume button visibility and status messaging.
+ * Handles pause/resume button visibility, status messaging, and recording indicator.
  *
  * @param {Object} data - Monitoring status data
  * @param {boolean} data.monitoring_active - True if monitoring active
@@ -1498,6 +1557,7 @@ function updateMonitoringUI(data) {
     const statusText = document.getElementById('status-text');
     const statusDot = document.getElementById('status-dot');
     const postureMessage = document.getElementById('posture-message');
+    const recordingIndicator = document.querySelector('.recording-indicator');
 
     // Defensive: Check elements exist
     if (!pauseBtn || !resumeBtn) {
@@ -1521,6 +1581,12 @@ function updateMonitoringUI(data) {
             }
             // Status dot color will be updated by posture_update event
 
+            // Update recording indicator - active state
+            if (recordingIndicator) {
+                recordingIndicator.innerHTML = '<span class="recording-dot"></span> Recording: Camera is active';
+                recordingIndicator.style.color = '';
+            }
+
         } else {
             // Monitoring paused - show resume button
             pauseBtn.style.display = 'none';
@@ -1541,6 +1607,12 @@ function updateMonitoringUI(data) {
                     'Privacy mode: Camera monitoring paused. Click "Resume" when ready.';
             }
 
+            // Update recording indicator - paused state
+            if (recordingIndicator) {
+                recordingIndicator.innerHTML = '<span class="recording-dot" style="background: #888; animation: none;"></span> Recording: Paused';
+                recordingIndicator.style.color = '#888';
+            }
+
             // Clear alert banner (stale alert)
             clearDashboardAlert();
         }
@@ -1554,10 +1626,166 @@ function updateMonitoringUI(data) {
 
 
 /**
+ * Enter standalone mode - REST polling fallback when SocketIO unavailable.
+ * Story 8.6: Windows standalone mode support
+ *
+ * In standalone mode:
+ * - SocketIO is not available (not initialized in Flask)
+ * - Dashboard polls REST API for stats updates
+ * - Camera feed not available in browser (managed by system tray app)
+ * - Network settings hidden (not applicable to localhost-only standalone)
+ */
+function enterStandaloneMode() {
+    standaloneMode = true;
+    console.log('Entering standalone mode - using REST polling for updates');
+
+    // Update connection status to show standalone mode
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const cvStatus = document.getElementById('cv-status');
+    const postureMessage = document.getElementById('posture-message');
+
+    if (statusDot) {
+        statusDot.className = 'status-indicator status-good';
+    }
+    if (statusText) {
+        statusText.textContent = 'Standalone Mode';
+    }
+    if (cvStatus) {
+        cvStatus.textContent = 'Camera managed by system tray application';
+    }
+    if (postureMessage) {
+        postureMessage.textContent = 'View posture status in system tray. This dashboard shows statistics only.';
+    }
+
+    // Hide network settings section (not applicable in standalone mode)
+    // Find the article containing the network-access-toggle
+    const networkToggle = document.getElementById('network-access-toggle');
+    if (networkToggle) {
+        const networkSection = networkToggle.closest('article');
+        if (networkSection) {
+            networkSection.style.display = 'none';
+        }
+    }
+
+    // Hide camera feed (managed by tray app, not browser)
+    const cameraContainer = document.querySelector('.camera-feed');
+    if (cameraContainer) {
+        // Replace camera feed with standalone mode placeholder
+        cameraContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #666; ' +
+            'background: #f5f5f5; border-radius: 8px; min-height: 200px; display: flex; ' +
+            'flex-direction: column; justify-content: center;">' +
+            '<p style="font-size: 48px; margin: 0;">📷</p>' +
+            '<p style="margin: 10px 0 0 0;">Camera preview available in system tray icon</p>' +
+            '<small>Right-click tray icon → Show Camera Preview</small></div>';
+    }
+
+    // Load initial stats
+    loadTodayStats();
+    load7DayHistory();
+    loadTrendData();
+
+    // Load initial monitoring status
+    pollMonitoringStatus();
+
+    // Start polling for stats updates (every 30 seconds)
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+    pollingInterval = setInterval(function() {
+        if (DEBUG) console.log('Polling stats update...');
+        loadTodayStats();
+        pollMonitoringStatus();
+    }, 5000);  // Poll every 5 seconds for responsive pause/resume status
+
+    console.log('Standalone mode initialized - polling every 5 seconds');
+}
+
+
+/**
+ * Poll monitoring status in standalone mode.
+ * Updates dashboard to show when monitoring is paused.
+ * Updates: status indicator, buttons, recording indicator, posture message.
+ */
+function pollMonitoringStatus() {
+    fetch('/api/monitoring-status')
+        .then(response => response.json())
+        .then(data => {
+            if (DEBUG) console.log('Monitoring status:', data);
+
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const postureMessage = document.getElementById('posture-message');
+            const pauseBtn = document.getElementById('pause-btn');
+            const resumeBtn = document.getElementById('resume-btn');
+            const recordingIndicator = document.querySelector('.recording-indicator');
+
+            if (data.monitoring_active) {
+                // Monitoring is ACTIVE
+                if (statusDot) {
+                    statusDot.className = 'status-indicator status-good';
+                }
+                if (statusText) {
+                    statusText.textContent = 'Monitoring Active';
+                }
+                if (postureMessage) {
+                    postureMessage.textContent = 'Posture monitoring is active. View live status in system tray.';
+                }
+                // Update buttons
+                if (pauseBtn && resumeBtn) {
+                    pauseBtn.style.display = 'inline-block';
+                    pauseBtn.disabled = false;
+                    pauseBtn.textContent = '⏸ Pause Monitoring';
+                    resumeBtn.style.display = 'none';
+                }
+                // Update recording indicator
+                if (recordingIndicator) {
+                    recordingIndicator.innerHTML = '<span class="recording-dot"></span> Recording: Camera is active';
+                    recordingIndicator.style.color = '';
+                }
+                monitoringActive = true;
+            } else {
+                // Monitoring is PAUSED
+                if (statusDot) {
+                    statusDot.className = 'status-indicator status-offline';
+                }
+                if (statusText) {
+                    statusText.textContent = '⏸ Monitoring Paused';
+                }
+                if (postureMessage) {
+                    postureMessage.textContent = '⏸ Monitoring paused. Statistics are frozen until resumed.';
+                }
+                // Update buttons
+                if (pauseBtn && resumeBtn) {
+                    pauseBtn.style.display = 'none';
+                    resumeBtn.style.display = 'inline-block';
+                    resumeBtn.disabled = false;
+                    resumeBtn.textContent = '▶️ Resume Monitoring';
+                }
+                // Update recording indicator - show paused state
+                if (recordingIndicator) {
+                    recordingIndicator.innerHTML = '<span class="recording-dot" style="background: #888; animation: none;"></span> Recording: Paused';
+                    recordingIndicator.style.color = '#888';
+                }
+                monitoringActive = false;
+            }
+        })
+        .catch(error => {
+            if (DEBUG) console.error('Failed to poll monitoring status:', error);
+        });
+}
+
+
+/**
  * Initialize network settings toggle.
  * Loads current config and sets up event listener.
+ * Note: Hidden in standalone mode (not applicable).
  */
 function initializeNetworkSettings() {
+    // Skip in standalone mode
+    if (standaloneMode) {
+        return;
+    }
     const toggle = document.getElementById('network-access-toggle');
     const currentHost = document.getElementById('current-host');
 

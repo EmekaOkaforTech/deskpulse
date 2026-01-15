@@ -105,6 +105,14 @@ class PostureAnalytics:
             current_event = events[i]
             next_event = events[i + 1]
 
+            # CRITICAL: Skip duration if current event is a pause marker
+            # The time between pause marker and resume marker is paused period
+            # and should NOT be counted in posture duration
+            current_metadata = current_event.get('metadata', {})
+            if current_metadata.get('monitoring_paused'):
+                logger.debug(f"Skipping paused period: event {i} is pause marker")
+                continue
+
             # Calculate time between events
             # Note: Repository returns timestamp as ISO 8601 string from database
             # fromisoformat() handles both string and datetime objects
@@ -127,31 +135,39 @@ class PostureAnalytics:
 
         # Handle last event (cap at 10 minutes or end boundary, whichever is sooner)
         last_event = events[-1]
-        last_timestamp = last_event['timestamp']
-        if isinstance(last_timestamp, str):
-            last_timestamp = datetime.fromisoformat(last_timestamp)
+        last_metadata = last_event.get('metadata', {})
 
-        # CRITICAL FIX: For today, use current time as endpoint (live stats)
-        # BUT if monitoring is paused, use pause_timestamp to prevent phantom accumulation
-        # For past dates, use end of day
-        if target_date == date.today():
-            if pause_timestamp is not None:
-                # Monitoring is paused - use pause time, NOT current time
-                # This prevents the last event from accumulating duration while paused
-                end_boundary = pause_timestamp
-            else:
-                # Monitoring active - use current time for live stats
-                end_boundary = datetime.now()
+        # CRITICAL: If last event is a pause marker, don't add remaining duration
+        # Monitoring is paused, so no time should accumulate from pause marker
+        if last_metadata.get('monitoring_paused'):
+            logger.debug("Last event is pause marker - no remaining duration added")
+            remaining_duration = 0
         else:
-            end_boundary = datetime.combine(target_date, time.max)  # 23:59:59.999999
+            last_timestamp = last_event['timestamp']
+            if isinstance(last_timestamp, str):
+                last_timestamp = datetime.fromisoformat(last_timestamp)
 
-        # CRITICAL: Protect against negative durations from clock skew or timezone issues
-        # If last event is after end_boundary (shouldn't happen, but defensive programming),
-        # max(0, ...) ensures we never add negative duration
-        remaining_duration = max(0, min(
-            (end_boundary - last_timestamp).total_seconds(),
-            600  # Cap at 10 minutes (prevents overnight inflation)
-        ))
+            # CRITICAL FIX: For today, use current time as endpoint (live stats)
+            # BUT if monitoring is paused, use pause_timestamp to prevent phantom accumulation
+            # For past dates, use end of day
+            if target_date == date.today():
+                if pause_timestamp is not None:
+                    # Monitoring is paused - use pause time, NOT current time
+                    # This prevents the last event from accumulating duration while paused
+                    end_boundary = pause_timestamp
+                else:
+                    # Monitoring active - use current time for live stats
+                    end_boundary = datetime.now()
+            else:
+                end_boundary = datetime.combine(target_date, time.max)  # 23:59:59.999999
+
+            # CRITICAL: Protect against negative durations from clock skew or timezone issues
+            # If last event is after end_boundary (shouldn't happen, but defensive programming),
+            # max(0, ...) ensures we never add negative duration
+            remaining_duration = max(0, min(
+                (end_boundary - last_timestamp).total_seconds(),
+                600  # Cap at 10 minutes (prevents overnight inflation)
+            ))
 
         if last_event['posture_state'] == 'good':
             good_duration += remaining_duration
