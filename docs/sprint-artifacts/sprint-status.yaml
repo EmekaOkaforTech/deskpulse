@@ -105,13 +105,13 @@ development_status:
   epic-7-retrospective: optional
 
   # Epic 8: Standalone Windows Edition (No Pi Required) - COMMERCIAL PRIMARY PRODUCT
-  epic-8: in-progress  # CRITICAL: Main commercial product (90% of paid market), serves non-tech users
+  epic-8: done  # ✅ COMPLETE 2026-01-15: v2.0.0 released, Windows 11 Pro validated, 30-min stability passed
   8-1-windows-backend-port: done  # COMPLETE: 48/48 tests passing, 30-min stability test passed, all ACs met, Windows validated (Build 26200.7462)
   8-2-mediapipe-tasks-api-migration: done  # ✅ 100% ENTERPRISE COMPLETE: 30-min stability (Pi 4: 242MB/0.8% CPU, 0 crashes), 7 unit + 5 integration tests, cross-platform validated (x64: 0.10.31, ARM64: 0.10.18), real hardware tested, -80MB package size, backward compatible, 100/100 quality score
   8-3-windows-camera-capture: done  # ✅ 100% COMPLETE: All 9 tasks done including T8 Windows validation. 99 tests passing (71 unit + 28 integration), 0 failures. 30-min stability test: 158.2 MB (41% under 270 MB target), 5.0% CPU (87% under 40% target), 45,873 frames, 0 crashes, +1.0% memory growth. Windows 10 Pro Build 26200 validated. Code review: 13 critical fixes applied. 1,055 lines tests, 1,710 lines impl. Enterprise-grade validated.
   8-4-local-architecture-ipc: done  # ✅ 100% ENTERPRISE COMPLETE: Local IPC architecture implemented (callbacks + priority queue + shared state). 70/70 tests passing (20 callback + 17 queue + 15 integration + 11 stress + 7 latency). Alert latency 0.16ms avg (1220x faster than SocketIO 200ms baseline). Thread-safe SharedState with 60s cache. Stress tested: 1000 events/sec, 10 threads × 1000 concurrent reads. Documentation: 378-line architecture.md section + latency validation report. Production-ready for Windows Standalone Edition.
   8-5-unified-system-tray-application: done  # ✅ COMPLETE 2026-01-11: 2,061 lines (440 main + 1,100 tests + 521 mods), 38 tests passing, Windows validation complete, 30-min stability test passed, enterprise-grade (real backend)
-  8-6-all-in-one-installer: in-progress  # 🚀 IN PROGRESS 2026-01-11: PyInstaller standalone build for Story 8.5 code (now validated). 8 ACs, 7 tasks (50+ subtasks), enterprise-grade installer. Realistic size: 150-250 MB installer (200-300 MB installed) with full backend (Flask+OpenCV+MediaPipe). Windows 10/11 validation required. Auto-start, clean uninstall, professional UX. GitHub Release v2.0.0-standalone. UNBLOCKED: Story 8.5 complete.
+  8-6-all-in-one-installer: done  # ✅ COMPLETE 2026-01-15: Windows 11 Pro validated, 30-min stability (248-260 MB stable, no leaks), pause/resume fixed, v2.0.0 tagged and pushed
   epic-8-retrospective: optional
 
   # Epic 9: Premium Analytics Features - COMMERCIAL TIER ENHANCEMENT

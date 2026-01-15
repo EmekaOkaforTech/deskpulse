@@ -1,7 +1,8 @@
 # Windows Standalone Setup Guide
 
-**Status:** Story 8.1 Implementation Phase
-**Last Updated:** 2026-01-07
+**Status:** ✅ Epic 8 COMPLETE (v2.0.0)
+**Last Updated:** 2026-01-15
+**Validated:** Windows 11 Pro (30-minute stability test passed)
 
 ## Overview
 
@@ -277,24 +278,26 @@ pytest tests/test_standalone_config.py::TestPathFunctions -v
 
 ---
 
-## Known Limitations (Story 8.1)
+## Features (Epic 8 Complete)
 
-This is the backend implementation only. The following features come in later stories:
+All features implemented and validated:
 
-- ❌ **No System Tray UI** (Story 8.4)
-- ❌ **No Camera Selection Dialog** (Story 8.2)
-- ❌ **No Installer** (Story 8.5)
-- ❌ **No Local IPC** (Story 8.3 - currently uses backend thread directly)
-- ❌ **Console-only** (GUI in Story 8.4)
+- ✅ **System Tray UI** (Story 8.4) - Professional tray icon with full menu
+- ✅ **Camera Selection Dialog** (Story 8.2) - Native Windows MessageBox on first launch
+- ✅ **All-in-One Installer** (Story 8.6) - DeskPulse-Standalone-Setup-v2.0.0.exe
+- ✅ **Local IPC** (Story 8.3) - Direct callbacks, no SocketIO required
+- ✅ **Toast Notifications** - Native Windows notifications
 
-**Current Capabilities:**
-- ✅ Backend runs on Windows
-- ✅ Windows camera capture
-- ✅ Posture monitoring
+**Core Capabilities:**
+- ✅ Backend runs on Windows (Flask embedded)
+- ✅ Windows camera capture (DirectShow)
+- ✅ Posture monitoring (MediaPipe)
 - ✅ Database persistence with WAL mode
 - ✅ File-based logging
 - ✅ Configuration management
-- ✅ Analytics calculations
+- ✅ 30-day analytics
+- ✅ Auto-start with Windows
+- ✅ Clean uninstall with data preservation option
 
 ---
 
@@ -337,10 +340,11 @@ mypy app/standalone/
 
 ## Next Steps
 
-1. **Story 8.2:** Windows camera selection UI and permission handling
-2. **Story 8.3:** Local IPC to replace network SocketIO
-3. **Story 8.4:** Unified system tray application
-4. **Story 8.5:** PyInstaller all-in-one .exe installer
+Epic 8 is complete. Next options:
+
+1. **Phase 1:** Open Source Release (GitHub public repo)
+2. **Phase 3:** Pro Launch (payment processing, product page)
+3. **Epic 9:** Premium Analytics (30+ day history, pain tracking, exports)
 
 ---
 
@@ -352,6 +356,6 @@ mypy app/standalone/
 
 ---
 
-**Implementation Status:** ✅ Backend Complete, Testing on Windows Required
-**Tests:** 58/68 passing (85%), 3 production bugs fixed
-**Next:** Windows hardware validation (Tasks 1-3)
+**Implementation Status:** ✅ Epic 8 COMPLETE (v2.0.0 released)
+**Validation:** Windows 11 Pro - 30-min stability test PASSED (248-260 MB, no leaks)
+**Release:** v2.0.0 tagged and pushed to Gitea 2026-01-15
