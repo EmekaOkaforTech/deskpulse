@@ -14,7 +14,7 @@ Real-time posture monitoring for Raspberry Pi with local processing and zero clo
 ## Quick Install (Raspberry Pi)
 
 ```bash
-curl -fsSL http://192.168.10.126:2221/Emeka/deskpulse/raw/branch/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scripts/install.sh | bash
 ```
 
 **Requirements:**
@@ -59,7 +59,7 @@ sudo apt-get install -y python3-venv python3-pip git v4l-utils libnotify-bin
 ### 2. Clone Repository
 
 ```bash
-git clone git@192.168.10.126:Emeka/deskpulse.git
+git clone https://github.com/EmekaOkaforTech/deskpulse.git
 cd deskpulse
 ```
 
@@ -184,69 +184,6 @@ cd ~/deskpulse
 
 Optionally preserves your posture history database.
 
-## Windows Desktop Client
-
-DeskPulse includes a native Windows desktop client that runs in your system tray and connects to your Raspberry Pi backend.
-
-### Features
-
-- **System Tray Integration**: Runs quietly in background, accessible from tray icon
-- **Real-time Notifications**: Toast notifications for alerts and status updates
-- **Live Stats**: View today's posture statistics from tray menu
-- **Pause/Resume Control**: Pause monitoring when stepping away
-- **Auto-Start Option**: Launch automatically when Windows starts
-- **No Python Required**: Standalone installer - works on any Windows 10/11 PC
-
-### Quick Install
-
-1. **Download installer**: [DeskPulse-Setup-v1.0.0.exe](http://192.168.10.126:2221/Emeka/deskpulse/releases)
-2. **Run installer**: Double-click the downloaded file
-   - Windows may show SmartScreen warning (click "More info" → "Run anyway")
-   - This is normal for unsigned open-source software
-3. **Follow wizard**: Choose installation location and options
-4. **Launch DeskPulse**: Starts automatically after installation
-
-### Requirements
-
-- **Windows 10 (1803+) or Windows 11** (64-bit)
-- **Raspberry Pi** with DeskPulse backend running on same network
-- **No Python installation needed** - completely standalone
-
-### Configuration
-
-On first launch, DeskPulse creates config at: `%APPDATA%\DeskPulse\config.json`
-
-**Default backend**: `http://raspberrypi.local:5000`
-
-**To change backend URL**:
-1. Right-click tray icon → "Exit"
-2. Edit: `C:\Users\YourName\AppData\Roaming\DeskPulse\config.json`
-   ```json
-   {
-     "backend_url": "http://192.168.1.100:5000"
-   }
-   ```
-3. Restart DeskPulse
-
-### System Tray Menu
-
-Right-click the tray icon to access:
-- **Pause/Resume Monitoring**: Control monitoring state
-- **View Stats → Today's Stats**: See your posture statistics
-- **Open Dashboard**: Launch backend dashboard in browser
-- **Exit**: Close DeskPulse
-
-### Building from Source (Advanced)
-
-See [build/windows/README.md](build/windows/README.md) for detailed build instructions.
-
-**Quick build** (requires Python 3.9+, PyInstaller):
-```powershell
-.\build\windows\build.ps1
-```
-
-**Output**: `dist/DeskPulse/DeskPulse.exe`
-
 ## Troubleshooting
 
 ### Camera Not Detected
@@ -336,22 +273,26 @@ curl -L -o pose_landmarker_full.task \
 
 ## Project Status
 
-**Epic 1: Foundation Setup & Installation** ✅ Complete
-- Flask application with factory pattern
-- SQLite database with WAL mode
-- Configuration management system
-- systemd service integration
-- Comprehensive logging
-- One-line installer script
-- Development documentation
+**Open Source Edition - Raspberry Pi DIY Version**
 
-**Next:** Epic 2 - Real-Time Posture Monitoring
+| Epic | Status | Description |
+|------|--------|-------------|
+| Epic 1: Foundation | ✅ Complete | Flask app, SQLite, systemd, installer |
+| Epic 2: Monitoring | ✅ Complete | Real-time posture detection with MediaPipe |
+| Epic 3: Alerts | ✅ Complete | Desktop and browser notifications |
+| Epic 4: Analytics | ✅ Complete | 7-day history and trend tracking |
+| Epic 5: Reliability | 🔜 Planned | Health monitoring, auto-updates |
+| Epic 6: Community | 🔜 Planned | CI/CD, contribution infrastructure |
 
-## Repository
+**Looking for Windows Standalone?** A commercial Windows edition (no Pi required) is available at [deskpulse.com](https://deskpulse.com) (coming soon).
 
-- **Git:** git@192.168.10.126:Emeka/deskpulse.git
-- **Web:** http://192.168.10.126:2221/Emeka/deskpulse
-- **Issues:** http://192.168.10.126:2221/Emeka/deskpulse/issues
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Code style guidelines
+- Pull request process
+- Issue reporting
 
 ## License
 
@@ -359,8 +300,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Issues:** http://192.168.10.126:2221/Emeka/deskpulse/issues
-- **Documentation:** http://192.168.10.126:2221/Emeka/deskpulse
+- **Issues:** [GitHub Issues](https://github.com/EmekaOkaforTech/deskpulse/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/EmekaOkaforTech/deskpulse/discussions)
 
 ## Acknowledgments
 
