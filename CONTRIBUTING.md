@@ -24,7 +24,7 @@ Thank you for your interest in contributing to DeskPulse! This document provides
 ### 1. Clone Repository
 
 ```bash
-git clone git@192.168.10.126:Emeka/deskpulse.git
+git clone https://github.com/EmekaOkaforTech/deskpulse.git
 cd deskpulse
 ```
 
@@ -303,7 +303,7 @@ git push origin feature/your-feature-name
 
 ### 2. Create a Pull Request
 
-Visit http://192.168.10.126:2221/Emeka/deskpulse and create a pull request with:
+Visit https://github.com/EmekaOkaforTech/deskpulse and create a pull request with:
 
 - Clear description of changes
 - Reference to related issues
@@ -321,7 +321,7 @@ Visit http://192.168.10.126:2221/Emeka/deskpulse and create a pull request with:
 
 ### Before Reporting
 
-1. Check existing issues: http://192.168.10.126:2221/Emeka/deskpulse/issues
+1. Check existing issues: https://github.com/EmekaOkaforTech/deskpulse/issues
 2. Verify it's reproducible
 3. Check if it's already fixed in latest version
 
@@ -413,8 +413,8 @@ with app.app_context():
 
 ## Getting Help
 
-- **Documentation**: http://192.168.10.126:2221/Emeka/deskpulse
-- **Issues**: http://192.168.10.126:2221/Emeka/deskpulse/issues
+- **Documentation**: https://github.com/EmekaOkaforTech/deskpulse
+- **Issues**: https://github.com/EmekaOkaforTech/deskpulse/issues
 - **Architecture Docs**: [docs/architecture.md](docs/architecture.md)
 - **Test Design**: [docs/test-design.md](docs/test-design.md)
 
