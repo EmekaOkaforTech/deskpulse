@@ -60,7 +60,7 @@ DeskPulse uses MediaPipe Pose to track your nose, shoulders, and hips. Proper ca
 ## Testing Your Setup
 
 ### Step 1: Check Camera View
-1. Open dashboard: http://192.168.10.133:5000
+1. Open dashboard: http://raspberrypi.local:5000 (or your Pi's IP)
 2. Look at the video feed with skeleton overlay
 3. Verify you can see:
    - Green/amber dots on your nose
@@ -206,7 +206,7 @@ If posture detection isn't working accurately after following this guide:
 1. Check logs: `journalctl -f -u deskpulse | grep "Posture classified"`
 2. Verify angles shown: `shoulder-hip` and `nose-shoulder`
 3. Adjust camera position incrementally
-4. File issue: https://github.com/anthropics/deskpulse/issues
+4. File issue: https://github.com/EmekaOkaforTech/deskpulse/issues
 
 ---
 
