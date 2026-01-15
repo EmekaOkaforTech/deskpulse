@@ -9,7 +9,7 @@ set -o pipefail # Exit on pipe failure
 
 # === Configuration ===
 TOTAL_STEPS=11
-REPO_URL="git@192.168.10.126:Emeka/deskpulse.git"
+REPO_URL="https://github.com/EmekaOkaforTech/deskpulse.git"
 INSTALL_DIR="$HOME/deskpulse"
 VERSION="${VERSION:-main}"  # Support VERSION=v1.0.0 curl | bash
 INTERACTIVE=true
@@ -356,10 +356,10 @@ Troubleshooting:
   Stop:           sudo systemctl stop deskpulse
 
 Documentation:
-  http://192.168.10.126:2221/Emeka/deskpulse
+  https://github.com/EmekaOkaforTech/deskpulse
 
 Need help? File issues:
-  http://192.168.10.126:2221/Emeka/deskpulse/issues
+  https://github.com/EmekaOkaforTech/deskpulse/issues
 ============================================
 
 EOF
@@ -496,10 +496,10 @@ deskpulse Installer
 
 Usage:
   # One-line install (direct):
-  curl -fsSL http://192.168.10.126:2221/Emeka/deskpulse/raw/branch/main/scripts/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scripts/install.sh | bash
 
   # Two-step install (secure):
-  curl -fsSL http://192.168.10.126:2221/Emeka/deskpulse/raw/branch/main/scripts/install.sh -o install.sh
+  curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scripts/install.sh -o install.sh
   bash install.sh
 
   # Local usage:
@@ -523,7 +523,7 @@ Examples:
   ./scripts/install.sh --update
 
 Documentation:
-  http://192.168.10.126:2221/Emeka/deskpulse
+  https://github.com/EmekaOkaforTech/deskpulse
 EOF
 }
 
