@@ -4,7 +4,7 @@ Real-time posture monitoring for Raspberry Pi with local processing and zero clo
 
 ## Features
 
-- **Real-time Monitoring**: Uses MediaPipe Tasks API for accurate posture detection (Story 8.2)
+- **Real-time Monitoring**: Uses MediaPipe Tasks API for accurate posture detection
 - **Privacy-First**: All processing runs locally on your Raspberry Pi - no data leaves your device
 - **Smart Alerts**: Configurable thresholds with desktop and browser notifications
 - **Progress Tracking**: Historical data and trend analysis
@@ -53,7 +53,7 @@ python3 --version
 
 # Install system dependencies
 sudo apt-get update
-sudo apt-get install -y python3-venv python3-pip git v4l-utils libnotify-bin
+sudo apt-get install -y python3-venv python3-pip git v4l-utils libnotify-bin libsystemd-dev pkg-config
 ```
 
 ### 2. Clone Repository
@@ -239,7 +239,7 @@ resolution = 480p # Lower resolution helps
 
 ### MediaPipe Installation Failed
 
-**Story 8.2:** DeskPulse now uses MediaPipe Tasks API with platform-specific versions:
+DeskPulse uses MediaPipe Tasks API with platform-specific versions:
 
 **Raspberry Pi (ARM64):**
 ```bash
@@ -284,8 +284,6 @@ curl -L -o pose_landmarker_full.task \
 | Epic 5: Reliability | 🔜 Planned | Health monitoring, auto-updates |
 | Epic 6: Community | 🔜 Planned | CI/CD, contribution infrastructure |
 
-**Looking for Windows Standalone?** A commercial Windows edition (no Pi required) is available at [deskpulse.com](https://deskpulse.com) (coming soon).
-
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
@@ -307,7 +305,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 Built with:
 - Flask 3.0.0 - Web framework
-- MediaPipe Tasks API (0.10.31/0.10.18) - Pose detection (Story 8.2)
+- MediaPipe Tasks API (0.10.18) - Pose detection
 - OpenCV - Computer vision
 - SQLite - Database
 - systemd - Service management
