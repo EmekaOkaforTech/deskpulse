@@ -8,3 +8,6 @@ venv/
 *.db-wal
 .pytest_cache/
 .coverage
+.claude/
+.bmad/
+.agentvibes/
