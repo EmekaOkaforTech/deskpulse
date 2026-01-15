@@ -308,6 +308,10 @@ class BackendThread:
                 standalone_mode=True  # Skip SocketIO, Talisman, scheduler
             )
 
+            # Store backend reference in Flask app for routes.py access
+            # This avoids module global issues in PyInstaller
+            self.flask_app.config['BACKEND_THREAD'] = self
+
             # Initialize database
             with self.flask_app.app_context():
                 from app.extensions import init_db
@@ -645,8 +649,25 @@ class BackendThread:
     def pause_monitoring(self):
         """Pause posture monitoring."""
         if self.cv_pipeline and self.cv_pipeline.alert_manager:
-            # Pause monitoring via alert manager
             with self.flask_app.app_context():
+                # CRITICAL FIX: Record pause marker BEFORE pausing
+                # This "closes" the current period at pause time
+                # Without this, duration from last event to resume would include pause time
+                current_state = self.cv_pipeline.last_posture_state
+                if current_state in ('good', 'bad'):
+                    try:
+                        from app.data.repository import PostureEventRepository
+                        PostureEventRepository.insert_posture_event(
+                            posture_state=current_state,
+                            user_present=True,
+                            confidence_score=0.95,
+                            metadata={'monitoring_paused': True}
+                        )
+                        logger.info(f"Pause marker event recorded: {current_state}")
+                    except Exception as e:
+                        logger.warning(f"Failed to record pause marker: {e}")
+
+                # Now pause monitoring
                 self.cv_pipeline.alert_manager.pause_monitoring()
 
             # Get current threshold for callback
@@ -671,6 +692,23 @@ class BackendThread:
             # Resume monitoring via alert manager
             with self.flask_app.app_context():
                 self.cv_pipeline.alert_manager.resume_monitoring()
+
+                # CRITICAL FIX: Record a "resume" event to reset timestamp
+                # Without this, stats calculation includes paused duration
+                # (last_event_timestamp is from before pause, duration = now - last = includes pause time)
+                current_state = self.cv_pipeline.last_posture_state
+                if current_state in ('good', 'bad'):
+                    try:
+                        from app.data.repository import PostureEventRepository
+                        PostureEventRepository.insert_posture_event(
+                            posture_state=current_state,
+                            user_present=True,
+                            confidence_score=0.95,  # High confidence for resume marker
+                            metadata={'resume_marker': True}
+                        )
+                        logger.info(f"Resume marker event recorded: {current_state}")
+                    except Exception as e:
+                        logger.warning(f"Failed to record resume marker: {e}")
 
             # Get current threshold for callback
             status = self.cv_pipeline.alert_manager.get_monitoring_status()

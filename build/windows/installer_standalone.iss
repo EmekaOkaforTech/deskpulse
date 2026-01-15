@@ -17,7 +17,7 @@
 ; Application information
 AppName=DeskPulse Standalone Edition
 AppVersion=2.0.0
-AppPublisher=DeskPulse Team
+AppPublisher=EmekaOkaforTech
 AppPublisherURL=https://github.com/EmekaOkaforTech/deskpulse
 AppSupportURL=https://github.com/EmekaOkaforTech/deskpulse/issues
 AppUpdatesURL=https://github.com/EmekaOkaforTech/deskpulse/releases
@@ -51,9 +51,9 @@ PrivilegesRequired=admin
 
 ; Version info
 VersionInfoVersion=2.0.0.0
-VersionInfoCompany=DeskPulse Team
+VersionInfoCompany=EmekaOkaforTech
 VersionInfoDescription=DeskPulse Standalone Edition Installer
-VersionInfoCopyright=Copyright (C) 2026 DeskPulse Team
+VersionInfoCopyright=Copyright (C) 2026 EmekaOkaforTech
 VersionInfoProductName=DeskPulse Standalone Edition
 VersionInfoProductVersion=2.0.0
 

@@ -41,6 +41,9 @@ def create_app(config_name="development", database_path=None, standalone_mode=Fa
     # Configure logging
     configure_logging(app)
 
+    # Store standalone_mode in config for template access
+    app.config['STANDALONE_MODE'] = standalone_mode
+
     # Enterprise Security: Content Security Policy (CSP) headers
     # Protects against XSS, clickjacking, code injection attacks
     # Reference: https://binaryscripts.com/flask/2025/02/10/securing-flask-applications-with-content-security-policies-csp.html

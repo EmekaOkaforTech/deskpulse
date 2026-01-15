@@ -1084,13 +1084,15 @@ Data will appear here as you accumulate daily statistics."""
             config = load_config()
             current_index = config.get('camera', {}).get('index', 0)
 
-            # Native Windows camera selection using MessageBox
+            # Native Windows camera selection using thread-safe MessageBox wrapper
+            # CRITICAL: Must use show_message_box() not direct ctypes call
+            # Direct calls from pystray thread cause deadlock (buttons don't respond)
             selected_index = None
             for camera in cameras:
                 is_current = " (CURRENT)" if camera['index'] == current_index else ""
                 msg = f"Use this camera?\n\n{camera['name']}{is_current}\n(Index: {camera['index']})\n\nYES = Select this camera\nNO = Show next camera\nCANCEL = Keep current"
-                # MB_YESNOCANCEL = 3, MB_ICONQUESTION = 32, MB_SYSTEMMODAL = 4096
-                res = ctypes.windll.user32.MessageBoxW(0, msg, "DeskPulse - Select Camera", 3 | 32 | 4096)
+                # MB_YESNOCANCEL = 3, MB_ICONQUESTION = 32
+                res = show_message_box("DeskPulse - Select Camera", msg, 3 | 32)
                 if res == 6:  # IDYES
                     selected_index = camera['index']
                     break
