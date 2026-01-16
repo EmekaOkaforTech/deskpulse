@@ -12,6 +12,10 @@ opencv-python>=4.8.0,<4.10.0
 mediapipe==0.10.18
 numpy<2
 
+# JAX pinned for Python 3.9 compatibility
+jax<0.4.24
+jaxlib<0.4.24
+
 # System Integration
 sdnotify>=0.3.2
 schedule>=1.2.0
