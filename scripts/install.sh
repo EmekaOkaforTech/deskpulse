@@ -136,7 +136,7 @@ check_prerequisites() {
 install_system_dependencies() {
     progress "Installing system dependencies (~2 minutes)..."
     sudo apt-get update -qq
-    sudo apt-get install -y python3-venv python3-pip libsystemd-dev libnotify-bin v4l-utils git
+    sudo apt-get install -y python3-venv python3-pip libsystemd-dev libnotify-bin v4l-utils git libgl1-mesa-glx
     sudo usermod -a -G video "$USER"
     success "System packages installed"
     warning "Logout/login required for camera access (video group)"

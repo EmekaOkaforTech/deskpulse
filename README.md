@@ -55,7 +55,7 @@ python3 --version
 
 # Install system dependencies
 sudo apt-get update
-sudo apt-get install -y python3-venv python3-pip git v4l-utils libnotify-bin libsystemd-dev pkg-config
+sudo apt-get install -y python3-venv python3-pip git v4l-utils libnotify-bin libsystemd-dev pkg-config libgl1-mesa-glx
 ```
 
 ### 2. Clone Repository
