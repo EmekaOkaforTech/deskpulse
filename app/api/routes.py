@@ -24,8 +24,8 @@ def _get_pause_timestamp():
         datetime or None: The pause timestamp if monitoring is paused, else None
 
     Location of CV pipeline:
-        - Pi/Server mode: app.cv_pipeline (module global in app/__init__.py)
-        - Standalone mode: backend_thread.get_backend().cv_pipeline
+        - Pi/Server mode: current_app.cv_pipeline (stored on Flask app)
+        - Standalone mode: backend_thread via Flask app config
 
     CRITICAL: This function must return a valid pause_timestamp when monitoring
     is paused, otherwise stats will keep increasing (using datetime.now()).
@@ -33,23 +33,38 @@ def _get_pause_timestamp():
     logger.info("=== _get_pause_timestamp() called ===")
     pause_timestamp = None
 
-    # Try Pi/Server mode first (app.cv_pipeline - module global)
+    # Try Pi/Server mode first via current_app.cv_pipeline (most reliable)
+    try:
+        if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+            if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                am = current_app.cv_pipeline.alert_manager
+                logger.debug(f"Pi mode (current_app): monitoring_paused={am.monitoring_paused}, pause_timestamp={am.pause_timestamp}")
+                if am.monitoring_paused:
+                    pause_timestamp = am.pause_timestamp
+                    logger.info(f"Got pause_timestamp from current_app.cv_pipeline: {pause_timestamp}")
+                    return pause_timestamp
+                else:
+                    logger.debug("Pi mode: monitoring is active (not paused)")
+                    return None
+    except Exception as e:
+        logger.warning(f"Pi mode current_app.cv_pipeline check failed: {e}")
+
+    # Fallback: Try module-level global (legacy support)
     try:
         import app as app_module
         if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
             if hasattr(app_module.cv_pipeline, 'alert_manager') and app_module.cv_pipeline.alert_manager:
                 am = app_module.cv_pipeline.alert_manager
-                logger.debug(f"Pi mode: monitoring_paused={am.monitoring_paused}, pause_timestamp={am.pause_timestamp}")
+                logger.debug(f"Pi mode (module): monitoring_paused={am.monitoring_paused}, pause_timestamp={am.pause_timestamp}")
                 if am.monitoring_paused:
                     pause_timestamp = am.pause_timestamp
-                    logger.info(f"Got pause_timestamp from app.cv_pipeline: {pause_timestamp}")
+                    logger.info(f"Got pause_timestamp from app module: {pause_timestamp}")
                     return pause_timestamp
                 else:
-                    # Monitoring is active (not paused) - this is normal
-                    logger.debug("Pi mode: monitoring is active (not paused)")
+                    logger.debug("Pi mode (module): monitoring is active (not paused)")
                     return None
     except Exception as e:
-        logger.warning(f"Pi mode cv_pipeline check failed: {e}")
+        logger.warning(f"Pi mode module cv_pipeline check failed: {e}")
 
     # Try Standalone mode (via Flask app config - avoids PyInstaller module issues)
     try:
@@ -104,16 +119,26 @@ def _get_monitoring_status():
         'cooldown_seconds': 300
     }
 
-    # Try Pi/Server mode first (app.cv_pipeline - module global)
+    # CRITICAL FIX: Try current_app.cv_pipeline FIRST (matches _get_pause_timestamp)
+    try:
+        if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+            if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                status = current_app.cv_pipeline.alert_manager.get_monitoring_status()
+                logger.debug(f"Pi mode status (current_app): {status}")
+                return status
+    except Exception as e:
+        logger.warning(f"current_app.cv_pipeline status check failed: {e}")
+
+    # Fallback: Try module-level global (legacy support)
     try:
         import app as app_module
         if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
             if hasattr(app_module.cv_pipeline, 'alert_manager') and app_module.cv_pipeline.alert_manager:
                 status = app_module.cv_pipeline.alert_manager.get_monitoring_status()
-                logger.debug(f"Pi mode status: {status}")
+                logger.debug(f"Pi mode status (module): {status}")
                 return status
     except Exception as e:
-        logger.warning(f"Pi mode status check failed: {e}")
+        logger.warning(f"app_module.cv_pipeline status check failed: {e}")
 
     # Try Standalone mode (via Flask app config - avoids PyInstaller module issues)
     try:
@@ -172,16 +197,13 @@ def pause_monitoring():
     """
     logger.info("=== PAUSE MONITORING API CALLED ===")
     try:
-        # Try Pi/Server mode first
+        # CRITICAL FIX: Try current_app.cv_pipeline FIRST (matches _get_pause_timestamp)
+        # This ensures pause state is set on the SAME object that _get_pause_timestamp checks
         try:
-            import app as app_module
-            if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
-                if app_module.cv_pipeline.alert_manager:
-                    # CRITICAL FIX: ALWAYS record pause marker BEFORE pausing
-                    # Without marker, paused period is incorrectly counted in stats
-                    current_state = app_module.cv_pipeline.last_posture_state
-                    # Use current state if valid, otherwise fallback to 'good'
-                    # (user is likely in good posture when clicking pause button)
+            if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+                if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                    # Record pause marker BEFORE pausing
+                    current_state = current_app.cv_pipeline.last_posture_state
                     marker_state = current_state if current_state in ('good', 'bad') else 'good'
                     try:
                         from app.data.repository import PostureEventRepository
@@ -194,11 +216,35 @@ def pause_monitoring():
                         logger.info(f"Pause marker event recorded: {marker_state} (original: {current_state})")
                     except Exception as e:
                         logger.warning(f"Failed to record pause marker: {e}")
-                    app_module.cv_pipeline.alert_manager.pause_monitoring()
-                    logger.info("Monitoring paused via REST API (Pi mode)")
+                    current_app.cv_pipeline.alert_manager.pause_monitoring()
+                    logger.info(f"Monitoring paused via current_app.cv_pipeline, pause_timestamp={current_app.cv_pipeline.alert_manager.pause_timestamp}")
                     return jsonify({'success': True, 'monitoring_active': False}), 200
         except Exception as e:
-            logger.debug(f"Pi mode pause failed: {e}")
+            logger.debug(f"current_app.cv_pipeline pause failed: {e}")
+
+        # Fallback: Try module-level global (legacy support)
+        try:
+            import app as app_module
+            if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
+                if app_module.cv_pipeline.alert_manager:
+                    current_state = app_module.cv_pipeline.last_posture_state
+                    marker_state = current_state if current_state in ('good', 'bad') else 'good'
+                    try:
+                        from app.data.repository import PostureEventRepository
+                        PostureEventRepository.insert_posture_event(
+                            posture_state=marker_state,
+                            user_present=True,
+                            confidence_score=0.95 if current_state in ('good', 'bad') else 0.5,
+                            metadata={'monitoring_paused': True}
+                        )
+                        logger.info(f"Pause marker event recorded (module): {marker_state}")
+                    except Exception as e:
+                        logger.warning(f"Failed to record pause marker: {e}")
+                    app_module.cv_pipeline.alert_manager.pause_monitoring()
+                    logger.info(f"Monitoring paused via app_module.cv_pipeline, pause_timestamp={app_module.cv_pipeline.alert_manager.pause_timestamp}")
+                    return jsonify({'success': True, 'monitoring_active': False}), 200
+        except Exception as e:
+            logger.debug(f"app_module.cv_pipeline pause failed: {e}")
 
         # Try Standalone mode (via Flask app config - avoids PyInstaller module issues)
         try:
@@ -238,16 +284,14 @@ def resume_monitoring():
     """
     logger.info("=== RESUME MONITORING API CALLED ===")
     try:
-        # Try Pi/Server mode first
+        # CRITICAL FIX: Try current_app.cv_pipeline FIRST (matches _get_pause_timestamp)
+        # This ensures resume state is set on the SAME object that _get_pause_timestamp checks
         try:
-            import app as app_module
-            if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
-                if app_module.cv_pipeline.alert_manager:
-                    app_module.cv_pipeline.alert_manager.resume_monitoring()
-                    # CRITICAL FIX: ALWAYS record resume marker to reset timestamp
-                    # Without marker, time from pause to resume is incorrectly counted
-                    current_state = app_module.cv_pipeline.last_posture_state
-                    # Use current state if valid, otherwise fallback to 'good'
+            if hasattr(current_app, 'cv_pipeline') and current_app.cv_pipeline:
+                if hasattr(current_app.cv_pipeline, 'alert_manager') and current_app.cv_pipeline.alert_manager:
+                    current_app.cv_pipeline.alert_manager.resume_monitoring()
+                    # Record resume marker AFTER resuming
+                    current_state = current_app.cv_pipeline.last_posture_state
                     marker_state = current_state if current_state in ('good', 'bad') else 'good'
                     try:
                         from app.data.repository import PostureEventRepository
@@ -260,10 +304,34 @@ def resume_monitoring():
                         logger.info(f"Resume marker event recorded: {marker_state} (original: {current_state})")
                     except Exception as e:
                         logger.warning(f"Failed to record resume marker: {e}")
-                    logger.info("Monitoring resumed via REST API (Pi mode)")
+                    logger.info(f"Monitoring resumed via current_app.cv_pipeline, monitoring_paused={current_app.cv_pipeline.alert_manager.monitoring_paused}")
                     return jsonify({'success': True, 'monitoring_active': True}), 200
         except Exception as e:
-            logger.debug(f"Pi mode resume failed: {e}")
+            logger.debug(f"current_app.cv_pipeline resume failed: {e}")
+
+        # Fallback: Try module-level global (legacy support)
+        try:
+            import app as app_module
+            if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
+                if app_module.cv_pipeline.alert_manager:
+                    app_module.cv_pipeline.alert_manager.resume_monitoring()
+                    current_state = app_module.cv_pipeline.last_posture_state
+                    marker_state = current_state if current_state in ('good', 'bad') else 'good'
+                    try:
+                        from app.data.repository import PostureEventRepository
+                        PostureEventRepository.insert_posture_event(
+                            posture_state=marker_state,
+                            user_present=True,
+                            confidence_score=0.95 if current_state in ('good', 'bad') else 0.5,
+                            metadata={'resume_marker': True}
+                        )
+                        logger.info(f"Resume marker event recorded (module): {marker_state}")
+                    except Exception as e:
+                        logger.warning(f"Failed to record resume marker: {e}")
+                    logger.info(f"Monitoring resumed via app_module.cv_pipeline")
+                    return jsonify({'success': True, 'monitoring_active': True}), 200
+        except Exception as e:
+            logger.debug(f"app_module.cv_pipeline resume failed: {e}")
 
         # Try Standalone mode (via Flask app config - avoids PyInstaller module issues)
         try:

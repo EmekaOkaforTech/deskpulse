@@ -156,6 +156,8 @@ def create_app(config_name="development", database_path=None, standalone_mode=Fa
                     app.logger.info("CV pipeline started successfully")
                     # Register cleanup on process exit
                     atexit.register(cleanup_cv_pipeline)
+                # Store on Flask app for reliable access via current_app
+                app.cv_pipeline = cv_pipeline
             else:
                 app.logger.info("CV pipeline already running")
     elif standalone_mode:
