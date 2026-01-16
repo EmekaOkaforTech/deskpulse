@@ -46,10 +46,20 @@ def handle_connect():
 
     # Send initial monitoring status (Story 3.4)
     from flask import current_app
+    from datetime import datetime
     cv_pipeline = getattr(current_app, 'cv_pipeline_test', None) or app.cv_pipeline
     if cv_pipeline and cv_pipeline.alert_manager:
         status = cv_pipeline.alert_manager.get_monitoring_status()
         socketio.emit('monitoring_status', status, room=client_sid)
+
+    # Send initial camera status so "CV Pipeline: Checking..." updates immediately
+    if cv_pipeline:
+        camera_state = getattr(cv_pipeline, 'camera_state', 'disconnected')
+        socketio.emit('camera_status', {
+            'state': camera_state,
+            'timestamp': datetime.now().isoformat()
+        }, room=client_sid)
+        logger.info(f"Sent initial camera_status to {client_sid}: {camera_state}")
 
     # Track active client BEFORE starting thread (prevents race condition)
     with active_clients_lock:
