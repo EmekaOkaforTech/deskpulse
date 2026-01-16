@@ -264,6 +264,51 @@ curl -L -o pose_landmarker_full.task \
   https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task
 ```
 
+### Python Version Issues
+
+DeskPulse requires **Python 3.9, 3.10, or 3.11** due to MediaPipe ARM64 limitations.
+
+**Check your Python version:**
+```bash
+python3 --version
+```
+
+**Common issues by Python version:**
+
+| Python Version | Status | Notes |
+|---------------|--------|-------|
+| 3.9 | ✅ Supported | Raspberry Pi OS Bullseye default |
+| 3.10 | ✅ Supported | |
+| 3.11 | ✅ Supported | Raspberry Pi OS Bookworm default |
+| 3.12+ | ❌ Not supported | MediaPipe not available for ARM64 |
+
+**If you have Python 3.12+ (Bookworm):**
+You need to install Python 3.11 alongside:
+```bash
+sudo apt install python3.11 python3.11-venv
+python3.11 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### JAX/JaxLib Errors
+
+If you see syntax errors about `match` statements in JAX:
+```
+SyntaxError: invalid syntax
+    match self.layout:
+```
+
+This means JAX version is too new for your Python. The requirements.txt pins `jax<0.4.24` for Python 3.9 compatibility. Recreate your venv:
+```bash
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
 ## Documentation
 
 - **[Architecture](docs/architecture.md)** - System design and technical decisions
