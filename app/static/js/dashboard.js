@@ -296,6 +296,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load and display trend message (Story 4.5)
     loadTrendData();
+
+    // Initialize achievements display (Phase 2)
+    loadAchievements();
+
+    // Check for new achievements periodically
+    checkForNewAchievements();
 });
 
 
@@ -1942,3 +1948,233 @@ function initializeNetworkSettings() {
         });
     });
 }
+
+
+// ============================================
+// Achievement System - Phase 2
+// ============================================
+
+/**
+ * Load and display achievements from API.
+ * Called on page load and periodically to refresh display.
+ */
+async function loadAchievements() {
+    try {
+        const response = await fetch('/api/achievements');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        displayAchievements(data);
+
+    } catch (error) {
+        console.error('Failed to load achievements:', error);
+        // Show error state in UI
+        const summary = document.getElementById('achievement-summary');
+        if (summary) {
+            summary.textContent = 'Unable to load achievements';
+            summary.style.color = '#ef4444';
+        }
+    }
+}
+
+/**
+ * Display achievements in the dashboard.
+ * @param {Object} data - Achievement data from API
+ */
+function displayAchievements(data) {
+    const summaryEl = document.getElementById('achievement-summary');
+    const recentEl = document.getElementById('recent-achievements');
+    const progressEl = document.getElementById('achievement-progress');
+
+    if (!summaryEl || !recentEl) {
+        console.error('Achievement display elements not found');
+        return;
+    }
+
+    const stats = data.stats || {};
+    const earned = data.earned || [];
+    const available = data.available || [];
+
+    // Update summary line
+    summaryEl.textContent = `${stats.total_earned || 0} of ${stats.total_available || 0} earned • ${stats.total_points || 0} points`;
+    summaryEl.style.color = stats.total_earned > 0 ? '#10b981' : '#6b7280';
+
+    // Display recent achievements as badges
+    if (earned.length === 0) {
+        recentEl.innerHTML = `
+            <p style="color: #6b7280; font-size: 0.9rem; margin: 0;">
+                No achievements yet. Keep monitoring to earn your first badge!
+            </p>
+        `;
+    } else {
+        // Show up to 6 recent achievements
+        const recentBadges = earned.slice(0, 6).map(achievement => {
+            const tierColors = {
+                'bronze': '#cd7f32',
+                'silver': '#c0c0c0',
+                'gold': '#ffd700',
+                'platinum': '#e5e4e2'
+            };
+            const borderColor = tierColors[achievement.tier] || '#6b7280';
+
+            return `
+                <div class="achievement-badge" title="${achievement.description}"
+                     style="display: inline-flex; align-items: center; gap: 0.25rem;
+                            padding: 0.25rem 0.5rem; border-radius: 1rem;
+                            background: #f3f4f6; border: 2px solid ${borderColor};
+                            font-size: 0.85rem; cursor: help;">
+                    <span>${achievement.icon}</span>
+                    <span style="font-weight: 500;">${achievement.name}</span>
+                </div>
+            `;
+        }).join('');
+
+        recentEl.innerHTML = recentBadges;
+    }
+
+    // Show progress toward unearned achievements (up to 3)
+    if (progressEl) {
+        const unearned = available.filter(a => !a.earned).slice(0, 3);
+
+        if (unearned.length === 0) {
+            progressEl.innerHTML = '<p style="color: #10b981; font-weight: 500;">🎉 All achievements unlocked!</p>';
+        } else {
+            const progressHTML = unearned.map(achievement => `
+                <div style="margin-bottom: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                        <span>${achievement.icon} ${achievement.name}</span>
+                        <span style="color: #6b7280;">${achievement.points} pts</span>
+                    </div>
+                    <small style="color: #6b7280;">${achievement.description}</small>
+                </div>
+            `).join('');
+
+            progressEl.innerHTML = `
+                <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem;">
+                    <strong>Next achievements to unlock:</strong>
+                </p>
+                ${progressHTML}
+            `;
+        }
+    }
+
+    if (DEBUG) {
+        console.log(`Achievements displayed: ${earned.length} earned, ${stats.total_points} points`);
+    }
+}
+
+/**
+ * Check for new achievements and show notification.
+ * Called periodically and after stats updates.
+ */
+async function checkForNewAchievements() {
+    try {
+        // First trigger achievement check on server
+        const checkResponse = await fetch('/api/achievements/check', { method: 'POST' });
+        if (!checkResponse.ok) return;
+
+        const checkData = await checkResponse.json();
+
+        // If new achievements were awarded, show notifications and refresh display
+        if (checkData.count > 0) {
+            checkData.newly_awarded.forEach(achievement => {
+                showAchievementNotification(achievement);
+            });
+
+            // Refresh achievements display
+            loadAchievements();
+        }
+
+        // Also check for any unnotified achievements (from previous sessions)
+        const unnotifiedResponse = await fetch('/api/achievements/unnotified');
+        if (unnotifiedResponse.ok) {
+            const unnotifiedData = await unnotifiedResponse.json();
+            unnotifiedData.achievements.forEach(achievement => {
+                showAchievementNotification(achievement);
+                // Mark as notified
+                fetch(`/api/achievements/${achievement.earned_id}/notified`, { method: 'POST' });
+            });
+        }
+
+    } catch (error) {
+        if (DEBUG) console.error('Error checking achievements:', error);
+    }
+}
+
+/**
+ * Show achievement notification toast.
+ * @param {Object} achievement - Achievement data
+ */
+function showAchievementNotification(achievement) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 2px solid #f59e0b;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        max-width: 350px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        z-index: 1001;
+        animation: slideInRight 0.5s ease-out;
+    `;
+
+    toast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 2rem;">${achievement.icon}</span>
+            <div>
+                <div style="font-weight: 700; color: #92400e;">Achievement Unlocked!</div>
+                <div style="font-weight: 600; color: #78350f;">${achievement.name}</div>
+                <div style="font-size: 0.85rem; color: #a16207;">+${achievement.points} points</div>
+            </div>
+        </div>
+    `;
+
+    // Add animation keyframes if not already added
+    if (!document.getElementById('achievement-animations')) {
+        const style = document.createElement('style');
+        style.id = 'achievement-animations';
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(400px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(400px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(toast);
+
+    // Also send browser notification if permitted
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Achievement Unlocked!', {
+            body: `${achievement.icon} ${achievement.name} (+${achievement.points} points)`,
+            icon: '/static/img/logo.png',
+            tag: 'achievement-' + achievement.code
+        });
+    }
+
+    // Auto-remove toast after 5 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.5s ease-out';
+        setTimeout(() => toast.remove(), 500);
+    }, 5000);
+
+    console.log(`Achievement notification: ${achievement.name} (+${achievement.points} pts)`);
+}
+
+// Check achievements every 60 seconds (after stats update)
+setInterval(checkForNewAchievements, 60000);
+
+// Also refresh achievements display every 60 seconds
+setInterval(loadAchievements, 60000);
