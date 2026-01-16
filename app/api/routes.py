@@ -177,20 +177,23 @@ def pause_monitoring():
             import app as app_module
             if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
                 if app_module.cv_pipeline.alert_manager:
-                    # CRITICAL FIX: Record pause marker BEFORE pausing
+                    # CRITICAL FIX: ALWAYS record pause marker BEFORE pausing
+                    # Without marker, paused period is incorrectly counted in stats
                     current_state = app_module.cv_pipeline.last_posture_state
-                    if current_state in ('good', 'bad'):
-                        try:
-                            from app.data.repository import PostureEventRepository
-                            PostureEventRepository.insert_posture_event(
-                                posture_state=current_state,
-                                user_present=True,
-                                confidence_score=0.95,
-                                metadata={'monitoring_paused': True}
-                            )
-                            logger.info(f"Pause marker event recorded: {current_state}")
-                        except Exception as e:
-                            logger.warning(f"Failed to record pause marker: {e}")
+                    # Use current state if valid, otherwise fallback to 'good'
+                    # (user is likely in good posture when clicking pause button)
+                    marker_state = current_state if current_state in ('good', 'bad') else 'good'
+                    try:
+                        from app.data.repository import PostureEventRepository
+                        PostureEventRepository.insert_posture_event(
+                            posture_state=marker_state,
+                            user_present=True,
+                            confidence_score=0.95 if current_state in ('good', 'bad') else 0.5,
+                            metadata={'monitoring_paused': True}
+                        )
+                        logger.info(f"Pause marker event recorded: {marker_state} (original: {current_state})")
+                    except Exception as e:
+                        logger.warning(f"Failed to record pause marker: {e}")
                     app_module.cv_pipeline.alert_manager.pause_monitoring()
                     logger.info("Monitoring paused via REST API (Pi mode)")
                     return jsonify({'success': True, 'monitoring_active': False}), 200
@@ -241,20 +244,22 @@ def resume_monitoring():
             if hasattr(app_module, 'cv_pipeline') and app_module.cv_pipeline:
                 if app_module.cv_pipeline.alert_manager:
                     app_module.cv_pipeline.alert_manager.resume_monitoring()
-                    # CRITICAL FIX: Record resume marker to reset timestamp
+                    # CRITICAL FIX: ALWAYS record resume marker to reset timestamp
+                    # Without marker, time from pause to resume is incorrectly counted
                     current_state = app_module.cv_pipeline.last_posture_state
-                    if current_state in ('good', 'bad'):
-                        try:
-                            from app.data.repository import PostureEventRepository
-                            PostureEventRepository.insert_posture_event(
-                                posture_state=current_state,
-                                user_present=True,
-                                confidence_score=0.95,
-                                metadata={'resume_marker': True}
-                            )
-                            logger.info(f"Resume marker event recorded: {current_state}")
-                        except Exception as e:
-                            logger.warning(f"Failed to record resume marker: {e}")
+                    # Use current state if valid, otherwise fallback to 'good'
+                    marker_state = current_state if current_state in ('good', 'bad') else 'good'
+                    try:
+                        from app.data.repository import PostureEventRepository
+                        PostureEventRepository.insert_posture_event(
+                            posture_state=marker_state,
+                            user_present=True,
+                            confidence_score=0.95 if current_state in ('good', 'bad') else 0.5,
+                            metadata={'resume_marker': True}
+                        )
+                        logger.info(f"Resume marker event recorded: {marker_state} (original: {current_state})")
+                    except Exception as e:
+                        logger.warning(f"Failed to record resume marker: {e}")
                     logger.info("Monitoring resumed via REST API (Pi mode)")
                     return jsonify({'success': True, 'monitoring_active': True}), 200
         except Exception as e:
