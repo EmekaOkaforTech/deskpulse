@@ -229,6 +229,37 @@ sudo netstat -tlnp | grep 5000
 curl http://localhost:5000/health
 ```
 
+### Accessing Dashboard via SSH
+
+If you're connecting to the Pi via SSH and can't access the dashboard in your browser:
+
+**Option 1: SSH Tunnel (Recommended for security)**
+```bash
+# From your local machine:
+ssh -L 5000:localhost:5000 pi@<pi-ip-address>
+
+# Then open in your browser:
+# http://localhost:5000
+```
+
+**Option 2: Enable Network Access via Config**
+```bash
+# On the Pi:
+mkdir -p ~/.config/deskpulse
+echo -e "[dashboard]\nhost = 0.0.0.0" > ~/.config/deskpulse/config.ini
+
+# Restart the app
+sudo systemctl restart deskpulse
+
+# Then access from any device on your network:
+# http://<pi-ip-address>:5000
+```
+
+**Option 3: Environment Variable (Development)**
+```bash
+HOST=0.0.0.0 python run.py
+```
+
 ### High CPU Usage
 
 Reduce FPS in configuration:

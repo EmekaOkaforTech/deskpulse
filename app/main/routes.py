@@ -96,6 +96,9 @@ def update_network_settings():
         # Update host setting
         config.set('dashboard', 'host', new_host)
 
+        # Ensure config directory exists (fixes fresh deployment issue)
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
         # Write back to file
         with open(config_path, 'w') as f:
             config.write(f)
