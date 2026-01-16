@@ -39,6 +39,70 @@ curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scri
 2. Open http://raspberrypi.local:5000 in your browser
 3. Position your webcam to see your shoulders and head
 
+## Headless Pi Setup (SSH)
+
+If you're setting up DeskPulse on a Pi **without a monitor/keyboard** (headless), follow these steps:
+
+### During Installation
+
+The installer will prompt you about network access:
+
+```
+Enable network access? [y/N]: y
+```
+
+**Choose `Y` (Yes)** to allow dashboard access from other devices on your network.
+
+Or use the `--enable-network` flag for automated installs:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scripts/install.sh | bash -s -- --enable-network
+```
+
+### After Installation
+
+Once installed with network access enabled, access the dashboard from any device:
+
+```
+http://<pi-ip-address>:5000
+```
+
+To find your Pi's IP address:
+```bash
+hostname -I
+```
+
+### If You Installed Without Network Access
+
+If you already installed with the default (localhost only), you have two options:
+
+**Option A: Enable Network Access (Recommended for home use)**
+```bash
+# On the Pi via SSH:
+mkdir -p ~/.config/deskpulse
+echo -e "[dashboard]\nhost = 0.0.0.0" > ~/.config/deskpulse/config.ini
+sudo systemctl restart deskpulse
+
+# Then access from any device:
+# http://<pi-ip-address>:5000
+```
+
+**Option B: SSH Tunnel (More secure, requires tunnel each time)**
+```bash
+# From your local machine (laptop/desktop):
+ssh -L 5000:localhost:5000 pi@<pi-ip-address>
+
+# Then open in your browser:
+# http://localhost:5000
+```
+
+### Security Note
+
+- **`host = 127.0.0.1`** (default): Dashboard only accessible from the Pi itself - most secure
+- **`host = 0.0.0.0`**: Dashboard accessible from any device on your local network - convenient but less secure
+
+For home networks, `0.0.0.0` is generally safe. For shared/public networks, use SSH tunneling.
+
 ## Manual Installation
 
 If you prefer manual setup or need to customize the installation:
