@@ -8,11 +8,12 @@ set -u          # Exit on undefined variable
 set -o pipefail # Exit on pipe failure
 
 # === Configuration ===
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 REPO_URL="https://github.com/EmekaOkaforTech/deskpulse.git"
 INSTALL_DIR="$HOME/deskpulse"
 VERSION="${VERSION:-main}"  # Support VERSION=v1.0.0 curl | bash
 INTERACTIVE=true
+ENABLE_NETWORK=false  # Default: localhost only (secure)
 
 # === Logging ===
 INSTALL_LOG="/tmp/deskpulse-install-$(date +%Y%m%d-%H%M%S).log"
@@ -253,6 +254,60 @@ setup_configuration() {
     success "Configuration files created"
 }
 
+configure_network_access() {
+    progress "Configuring network access..."
+
+    # Enterprise-grade: Prompt user for network access preference
+    # This is the most user-friendly approach for headless Pi deployments
+    if [ "$INTERACTIVE" = true ] && [ "$ENABLE_NETWORK" = false ]; then
+        echo ""
+        echo "Network Access Configuration"
+        echo "============================"
+        echo ""
+        echo "By default, the dashboard is only accessible from this Pi (localhost)."
+        echo "To access it from other devices (phone, laptop, etc.), enable network access."
+        echo ""
+        echo "  [Y] Yes - Allow access from any device on your local network"
+        echo "      → Access via: http://<pi-ip-address>:5000"
+        echo ""
+        echo "  [N] No  - Only allow access from this Pi (more secure)"
+        echo "      → Access via: http://localhost:5000"
+        echo "      → Or use SSH tunnel: ssh -L 5000:localhost:5000 pi@<ip>"
+        echo ""
+        read -p "Enable network access? [y/N]: " NETWORK_CHOICE
+        if [[ "$NETWORK_CHOICE" =~ ^[Yy]$ ]]; then
+            ENABLE_NETWORK=true
+        fi
+    fi
+
+    # Apply network configuration
+    if [ "$ENABLE_NETWORK" = true ]; then
+        # Write user config to override system default
+        cat > ~/.config/deskpulse/config.ini << 'NETCFG'
+[dashboard]
+host = 0.0.0.0
+NETCFG
+        success "Network access ENABLED (0.0.0.0)"
+        echo "   Dashboard accessible from any device on your network"
+
+        # Get Pi's IP address for display
+        PI_IP=$(hostname -I | awk '{print $1}')
+        if [ -n "$PI_IP" ]; then
+            echo "   → Access at: http://$PI_IP:5000"
+        fi
+    else
+        # Ensure localhost-only (default secure setting)
+        cat > ~/.config/deskpulse/config.ini << 'NETCFG'
+[dashboard]
+host = 127.0.0.1
+NETCFG
+        success "Network access DISABLED (localhost only)"
+        echo "   Dashboard only accessible from this Pi"
+        echo "   → To enable later: Edit ~/.config/deskpulse/config.ini"
+        echo "   → Or use SSH tunnel: ssh -L 5000:localhost:5000 $USER@<pi-ip>"
+    fi
+}
+
 initialize_database() {
     progress "Initializing database..."
 
@@ -328,41 +383,61 @@ verify_installation() {
 display_success_message() {
     progress "Installation complete!"
 
-    cat << 'EOF'
+    # Get Pi's IP for network access instructions
+    PI_IP=$(hostname -I | awk '{print $1}')
 
-============================================
-🎉 deskpulse Installation Complete! 🎉
-============================================
+    echo ""
+    echo "============================================"
+    echo "  deskpulse Installation Complete!"
+    echo "============================================"
+    echo ""
+    echo "Installation Summary:"
+    echo "  Location:  ~/deskpulse"
+    echo "  Database:  /var/lib/deskpulse/posture.db"
+    echo "  Config:    /etc/deskpulse/config.ini"
+    echo "  Service:   deskpulse.service (running)"
+    echo ""
+    echo "IMPORTANT NEXT STEP:"
+    echo "  Log out and log back in for camera access to work"
+    echo "  (Required for 'video' group membership to take effect)"
+    echo ""
+    echo "Then open the dashboard:"
 
-Installation Summary:
-  Location:  ~/deskpulse
-  Database:  /var/lib/deskpulse/posture.db
-  Config:    /etc/deskpulse/config.ini
-  Service:   deskpulse.service (running ✓)
+    if [ "$ENABLE_NETWORK" = true ]; then
+        echo "  Network access: ENABLED"
+        if [ -n "$PI_IP" ]; then
+            echo "  → From any device: http://$PI_IP:5000"
+        fi
+        echo "  → From this Pi:    http://localhost:5000"
+    else
+        echo "  Network access: DISABLED (localhost only)"
+        echo "  → From this Pi: http://localhost:5000"
+        echo ""
+        echo "  To access from another device, use SSH tunnel:"
+        if [ -n "$PI_IP" ]; then
+            echo "    ssh -L 5000:localhost:5000 $USER@$PI_IP"
+        else
+            echo "    ssh -L 5000:localhost:5000 $USER@<pi-ip>"
+        fi
+        echo "    Then open: http://localhost:5000"
+        echo ""
+        echo "  Or enable network access later:"
+        echo "    Edit ~/.config/deskpulse/config.ini"
+        echo "    Change: host = 0.0.0.0"
+        echo "    Run: sudo systemctl restart deskpulse"
+    fi
 
-⚠️  IMPORTANT NEXT STEP:
-  → Log out and log back in for camera access to work
-    (Required for 'video' group membership to take effect)
-
-Then:
-  1. Open http://raspberrypi.local:5000 in your browser
-  2. Position your webcam to see your shoulders
-  3. Check logs: journalctl -u deskpulse -f
-
-Troubleshooting:
-  View logs:      journalctl -u deskpulse -f
-  Service status: sudo systemctl status deskpulse
-  Restart:        sudo systemctl restart deskpulse
-  Stop:           sudo systemctl stop deskpulse
-
-Documentation:
-  https://github.com/EmekaOkaforTech/deskpulse
-
-Need help? File issues:
-  https://github.com/EmekaOkaforTech/deskpulse/issues
-============================================
-
-EOF
+    echo ""
+    echo "Troubleshooting:"
+    echo "  View logs:      journalctl -u deskpulse -f"
+    echo "  Service status: sudo systemctl status deskpulse"
+    echo "  Restart:        sudo systemctl restart deskpulse"
+    echo ""
+    echo "Documentation:"
+    echo "  https://github.com/EmekaOkaforTech/deskpulse"
+    echo ""
+    echo "============================================"
+    echo ""
 }
 
 # === Lifecycle Functions ===
@@ -511,8 +586,25 @@ Options:
   --update            Update existing installation with rollback support
   --version <tag>     Install specific version (e.g., --version v1.0.0)
   --yes, -y           Non-interactive mode (use defaults)
+  --enable-network    Allow dashboard access from other devices on LAN
+  --disable-network   Restrict dashboard to localhost only (default, secure)
+
+Network Access:
+  By default, the dashboard is only accessible from the Pi itself.
+  Use --enable-network to allow access from other devices on your network.
+
+  After installation, you can change this in ~/.config/deskpulse/config.ini:
+    [dashboard]
+    host = 0.0.0.0    # Network access (all interfaces)
+    host = 127.0.0.1  # Localhost only (default)
 
 Examples:
+  # Install with network access enabled (for headless Pi):
+  ./scripts/install.sh --enable-network
+
+  # Non-interactive install with network access:
+  ./scripts/install.sh --yes --enable-network
+
   # Install specific version:
   curl -fsSL <url> | VERSION=v1.0.0 bash
 
@@ -552,6 +644,14 @@ main() {
             ;;
         --yes|-y)
             INTERACTIVE=false
+            shift
+            ;;
+        --enable-network)
+            ENABLE_NETWORK=true
+            shift
+            ;;
+        --disable-network)
+            ENABLE_NETWORK=false
             shift
             ;;
         "")
@@ -596,6 +696,7 @@ EOF
     download_mediapipe_models
     generate_secret_key
     setup_configuration
+    configure_network_access
     initialize_database
     install_systemd_service
     verify_installation
