@@ -31,13 +31,6 @@ class TestDashboardRoutes:
         assert b'status-text' in response.data
         assert b'posture-message' in response.data
 
-    def test_dashboard_has_privacy_indicator(self, client):
-        """Test privacy recording indicator is always visible."""
-        response = client.get('/')
-
-        assert b'recording-indicator' in response.data
-        assert b'Recording: Camera is active' in response.data
-
     def test_dashboard_has_todays_summary(self, client):
         """Test today's summary placeholder exists."""
         response = client.get('/')

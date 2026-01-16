@@ -28,6 +28,106 @@ let pollingInterval = null;
 // Initialize to null until first monitoring_status received (prevents race condition)
 let monitoringActive = null;
 
+// ========================================
+// Smart Coach Message System - Phase 1
+// ========================================
+
+// Track good posture streak for milestone messages
+let goodPostureStreakStart = null;
+let lastShownMessageIndex = -1;
+
+// Good posture messages - rotate to avoid repetition
+const GOOD_POSTURE_MESSAGES = [
+    "Great posture! Keep it up.",
+    "Looking good! Your back thanks you.",
+    "Perfect form! You're building great habits.",
+    "Excellent! This is how champions sit.",
+    "Your posture is on point!",
+    "Nicely done! Consistency builds strength."
+];
+
+// Good posture streak messages (shown after sustained good posture)
+const STREAK_MESSAGES = [
+    { minutes: 5, message: "5 minutes of great posture! You're on a roll." },
+    { minutes: 10, message: "10 minutes strong! Keep that momentum going." },
+    { minutes: 15, message: "15 minutes! Your posture habits are forming." },
+    { minutes: 30, message: "30 minutes of excellent posture! You're a natural." }
+];
+
+// Bad posture messages - gentle reminders
+const BAD_POSTURE_MESSAGES = [
+    "Time for a quick posture check!",
+    "Let's straighten up - your spine will thank you.",
+    "Small adjustment needed - sit tall!",
+    "Quick reset: shoulders back, chin level.",
+    "Gentle reminder: check your posture."
+];
+
+// Recovery messages (shown when correcting from bad to good)
+const RECOVERY_MESSAGES = [
+    "Nice recovery! That's the spirit.",
+    "Back on track - great adjustment!",
+    "Every correction builds better habits.",
+    "Well done! You caught that quickly."
+];
+
+// Time-based greeting prefixes
+function getTimeOfDayGreeting() {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return "morning";
+    if (hour >= 12 && hour < 17) return "afternoon";
+    return "evening";
+}
+
+// Track previous posture state for recovery detection
+let previousPostureState = null;
+
+/**
+ * Select a Smart Coach message based on posture state and context.
+ * @param {string} postureState - 'good' or 'bad'
+ * @param {boolean} isRecovery - True if just corrected from bad posture
+ * @returns {string} Selected message
+ */
+function selectCoachMessage(postureState, isRecovery = false) {
+    if (postureState === 'good') {
+        // Check for recovery (just corrected from bad)
+        if (isRecovery) {
+            const idx = Math.floor(Math.random() * RECOVERY_MESSAGES.length);
+            return RECOVERY_MESSAGES[idx];
+        }
+
+        // Check for streak milestone
+        if (goodPostureStreakStart) {
+            const streakMinutes = Math.floor((Date.now() - goodPostureStreakStart) / 60000);
+            // Find the highest milestone reached
+            for (let i = STREAK_MESSAGES.length - 1; i >= 0; i--) {
+                if (streakMinutes >= STREAK_MESSAGES[i].minutes) {
+                    // Only show milestone message once per threshold
+                    const lastMilestone = parseInt(sessionStorage.getItem('lastStreakMilestone') || '0');
+                    if (STREAK_MESSAGES[i].minutes > lastMilestone) {
+                        sessionStorage.setItem('lastStreakMilestone', STREAK_MESSAGES[i].minutes.toString());
+                        return STREAK_MESSAGES[i].message;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Regular good posture message - rotate to avoid repetition
+        let idx;
+        do {
+            idx = Math.floor(Math.random() * GOOD_POSTURE_MESSAGES.length);
+        } while (idx === lastShownMessageIndex && GOOD_POSTURE_MESSAGES.length > 1);
+        lastShownMessageIndex = idx;
+        return GOOD_POSTURE_MESSAGES[idx];
+
+    } else {
+        // Bad posture message
+        const idx = Math.floor(Math.random() * BAD_POSTURE_MESSAGES.length);
+        return BAD_POSTURE_MESSAGES[idx];
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DeskPulse Dashboard loaded - initializing...');
 
@@ -333,17 +433,32 @@ function updatePostureStatus(data) {
         return;
     }
 
+    // Detect recovery (transitioning from bad to good posture)
+    const isRecovery = previousPostureState === 'bad' && data.posture_state === 'good';
+
     // Update status based on posture (UX Design: colorblind-safe palette)
     if (data.posture_state === 'good') {
         statusDot.className = 'status-indicator status-good';  // Green
         statusText.textContent = '✓ Good Posture';
-        postureMessage.textContent =
-            'Great! Keep up the good posture.';
+
+        // Start or continue good posture streak tracking
+        if (!goodPostureStreakStart || previousPostureState !== 'good') {
+            goodPostureStreakStart = Date.now();
+            sessionStorage.setItem('lastStreakMilestone', '0');  // Reset milestones
+        }
+
+        // Use Smart Coach message system
+        const coachMessage = selectCoachMessage('good', isRecovery);
+        postureMessage.textContent = coachMessage;
         postureMessage.style.color = '#10b981';  // Green (positive feedback)
+
     } else if (data.posture_state === 'bad') {
         statusDot.className = 'status-indicator status-bad';  // Amber
         statusText.textContent = '⚠ Bad Posture';
         postureMessage.style.color = '#ef4444';  // Red (negative feedback)
+
+        // Reset good posture streak
+        goodPostureStreakStart = null;
 
         // Story 3.6: Display duration tracking and threshold progress
         // Backend sends data.alert = {duration: int, threshold_reached: bool, should_alert: bool}
@@ -360,16 +475,19 @@ function updatePostureStatus(data) {
                 postureMessage.textContent =
                     `⚠ Bad posture for ${durationStr}! Please correct your posture now.`;
             } else {
-                // Under threshold - show progress
+                // Under threshold - show progress with encouraging message
+                const gentleReminder = selectCoachMessage('bad');
                 postureMessage.textContent =
-                    `Bad posture: ${durationStr} / ${threshold_minutes}m - Sit up straight and align your shoulders`;
+                    `${gentleReminder} (${durationStr} / ${threshold_minutes}m)`;
             }
         } else {
             // No duration tracking yet (just started bad posture)
-            postureMessage.textContent =
-                'Sit up straight and align your shoulders';
+            postureMessage.textContent = selectCoachMessage('bad');
         }
     }
+
+    // Track previous state for recovery detection
+    previousPostureState = data.posture_state;
 
     // Display confidence if in debug mode
     const confidencePercent = Math.round(data.confidence_score * 100);
@@ -1557,7 +1675,6 @@ function updateMonitoringUI(data) {
     const statusText = document.getElementById('status-text');
     const statusDot = document.getElementById('status-dot');
     const postureMessage = document.getElementById('posture-message');
-    const recordingIndicator = document.querySelector('.recording-indicator');
     const cvStatus = document.getElementById('cv-status');
 
     // Defensive: Check elements exist
@@ -1587,12 +1704,6 @@ function updateMonitoringUI(data) {
                 cvStatus.textContent = 'Camera connected, monitoring active';
             }
 
-            // Update recording indicator - active state
-            if (recordingIndicator) {
-                recordingIndicator.innerHTML = '<span class="recording-dot"></span> Recording: Camera is active';
-                recordingIndicator.style.color = '';
-            }
-
         } else {
             // Monitoring paused - show resume button
             pauseBtn.style.display = 'none';
@@ -1616,12 +1727,6 @@ function updateMonitoringUI(data) {
             // Update CV Pipeline status to reflect paused state
             if (cvStatus) {
                 cvStatus.textContent = 'Camera connected, monitoring PAUSED';
-            }
-
-            // Update recording indicator - paused state
-            if (recordingIndicator) {
-                recordingIndicator.innerHTML = '<span class="recording-dot" style="background: #888; animation: none;"></span> Recording: Paused';
-                recordingIndicator.style.color = '#888';
             }
 
             // Clear alert banner (stale alert)
@@ -1729,7 +1834,6 @@ function pollMonitoringStatus() {
             const postureMessage = document.getElementById('posture-message');
             const pauseBtn = document.getElementById('pause-btn');
             const resumeBtn = document.getElementById('resume-btn');
-            const recordingIndicator = document.querySelector('.recording-indicator');
 
             if (data.monitoring_active) {
                 // Monitoring is ACTIVE
@@ -1749,11 +1853,6 @@ function pollMonitoringStatus() {
                     pauseBtn.textContent = '⏸ Pause Monitoring';
                     resumeBtn.style.display = 'none';
                 }
-                // Update recording indicator
-                if (recordingIndicator) {
-                    recordingIndicator.innerHTML = '<span class="recording-dot"></span> Recording: Camera is active';
-                    recordingIndicator.style.color = '';
-                }
                 monitoringActive = true;
             } else {
                 // Monitoring is PAUSED
@@ -1772,11 +1871,6 @@ function pollMonitoringStatus() {
                     resumeBtn.style.display = 'inline-block';
                     resumeBtn.disabled = false;
                     resumeBtn.textContent = '▶️ Resume Monitoring';
-                }
-                // Update recording indicator - show paused state
-                if (recordingIndicator) {
-                    recordingIndicator.innerHTML = '<span class="recording-dot" style="background: #888; animation: none;"></span> Recording: Paused';
-                    recordingIndicator.style.color = '#888';
                 }
                 monitoringActive = false;
             }
