@@ -1,14 +1,14 @@
-"""Repository for posture event data access.
+"""Repository for posture event and achievement data access.
 
-This module provides CRUD operations for posture_event table, abstracting
-database access from the CV pipeline and analytics modules.
+This module provides CRUD operations for posture_event and achievement tables,
+abstracting database access from the CV pipeline and analytics modules.
 
 CRITICAL: All methods require Flask app context (get_db() dependency).
 """
 
 import logging
 import json
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from app.data.database import get_db
 
 logger = logging.getLogger('deskpulse.db')
@@ -138,3 +138,341 @@ class PostureEventRepository:
         logger.debug(f"Retrieved {len(events)} events for date {target_date}")
 
         return events
+
+
+class AchievementRepository:
+    """Repository for achievement data access.
+
+    Enterprise-grade achievement tracking with proper separation of concerns:
+    - AchievementRepository: Data access layer (CRUD operations)
+    - AchievementService: Business logic layer (checking/awarding achievements)
+
+    CRITICAL: All methods require Flask app context.
+    """
+
+    @staticmethod
+    def get_achievement_type(code):
+        """Get achievement type by code.
+
+        Args:
+            code: Achievement type code (e.g., 'first_perfect_hour')
+
+        Returns:
+            dict or None: Achievement type details
+        """
+        db = get_db()
+        cursor = db.execute(
+            """
+            SELECT id, code, name, description, category, icon, points, tier, is_active
+            FROM achievement_type
+            WHERE code = ? AND is_active = 1
+            """,
+            (code,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                'id': row['id'],
+                'code': row['code'],
+                'name': row['name'],
+                'description': row['description'],
+                'category': row['category'],
+                'icon': row['icon'],
+                'points': row['points'],
+                'tier': row['tier']
+            }
+        return None
+
+    @staticmethod
+    def get_all_achievement_types(category=None):
+        """Get all active achievement types, optionally filtered by category.
+
+        Args:
+            category: Optional filter ('daily', 'weekly', 'milestone')
+
+        Returns:
+            list[dict]: Achievement type definitions
+        """
+        db = get_db()
+        if category:
+            cursor = db.execute(
+                """
+                SELECT id, code, name, description, category, icon, points, tier
+                FROM achievement_type
+                WHERE is_active = 1 AND category = ?
+                ORDER BY points ASC
+                """,
+                (category,)
+            )
+        else:
+            cursor = db.execute(
+                """
+                SELECT id, code, name, description, category, icon, points, tier
+                FROM achievement_type
+                WHERE is_active = 1
+                ORDER BY category, points ASC
+                """
+            )
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def has_earned_achievement(code, since_date=None):
+        """Check if achievement has been earned (optionally since a date).
+
+        Args:
+            code: Achievement type code
+            since_date: Optional date to check from (for daily achievements)
+
+        Returns:
+            bool: True if already earned
+        """
+        db = get_db()
+
+        if since_date:
+            cursor = db.execute(
+                """
+                SELECT ae.id FROM achievement_earned ae
+                JOIN achievement_type at ON ae.achievement_type_id = at.id
+                WHERE at.code = ? AND DATE(ae.earned_at) >= ?
+                """,
+                (code, since_date)
+            )
+        else:
+            cursor = db.execute(
+                """
+                SELECT ae.id FROM achievement_earned ae
+                JOIN achievement_type at ON ae.achievement_type_id = at.id
+                WHERE at.code = ?
+                """,
+                (code,)
+            )
+
+        return cursor.fetchone() is not None
+
+    @staticmethod
+    def award_achievement(code, metadata=None):
+        """Award an achievement to the user.
+
+        Args:
+            code: Achievement type code
+            metadata: Optional context data (e.g., {'score': 85})
+
+        Returns:
+            dict: Awarded achievement details with earned_id
+
+        Raises:
+            ValueError: If achievement type not found
+        """
+        achievement_type = AchievementRepository.get_achievement_type(code)
+        if not achievement_type:
+            raise ValueError(f"Achievement type not found: {code}")
+
+        db = get_db()
+        metadata_json = json.dumps(metadata or {})
+
+        cursor = db.execute(
+            """
+            INSERT INTO achievement_earned (achievement_type_id, earned_at, metadata, notified)
+            VALUES (?, ?, ?, 0)
+            """,
+            (achievement_type['id'], datetime.now(), metadata_json)
+        )
+        db.commit()
+
+        earned_id = cursor.lastrowid
+        logger.info(f"Achievement awarded: {code} (id={earned_id})")
+
+        return {
+            'earned_id': earned_id,
+            **achievement_type,
+            'earned_at': datetime.now().isoformat(),
+            'metadata': metadata or {}
+        }
+
+    @staticmethod
+    def get_earned_achievements(limit=50, include_notified=True):
+        """Get list of earned achievements, most recent first.
+
+        Args:
+            limit: Maximum number to return
+            include_notified: Include already-notified achievements
+
+        Returns:
+            list[dict]: Earned achievements with type details
+        """
+        db = get_db()
+
+        notified_filter = "" if include_notified else "AND ae.notified = 0"
+
+        cursor = db.execute(
+            f"""
+            SELECT ae.id as earned_id, ae.earned_at, ae.metadata, ae.notified,
+                   at.code, at.name, at.description, at.category, at.icon, at.points, at.tier
+            FROM achievement_earned ae
+            JOIN achievement_type at ON ae.achievement_type_id = at.id
+            WHERE at.is_active = 1 {notified_filter}
+            ORDER BY ae.earned_at DESC
+            LIMIT ?
+            """,
+            (limit,)
+        )
+
+        achievements = []
+        for row in cursor.fetchall():
+            achievements.append({
+                'earned_id': row['earned_id'],
+                'earned_at': row['earned_at'].isoformat() if isinstance(row['earned_at'], datetime) else row['earned_at'],
+                'metadata': json.loads(row['metadata']) if row['metadata'] else {},
+                'notified': bool(row['notified']),
+                'code': row['code'],
+                'name': row['name'],
+                'description': row['description'],
+                'category': row['category'],
+                'icon': row['icon'],
+                'points': row['points'],
+                'tier': row['tier']
+            })
+
+        return achievements
+
+    @staticmethod
+    def get_unnotified_achievements():
+        """Get achievements that haven't been notified to the user yet.
+
+        Returns:
+            list[dict]: Unnotified achievements
+        """
+        return AchievementRepository.get_earned_achievements(limit=10, include_notified=False)
+
+    @staticmethod
+    def mark_achievement_notified(earned_id):
+        """Mark an achievement as notified.
+
+        Args:
+            earned_id: The earned achievement ID
+        """
+        db = get_db()
+        db.execute(
+            "UPDATE achievement_earned SET notified = 1 WHERE id = ?",
+            (earned_id,)
+        )
+        db.commit()
+        logger.debug(f"Achievement marked as notified: earned_id={earned_id}")
+
+    @staticmethod
+    def get_achievement_stats():
+        """Get achievement statistics summary.
+
+        Returns:
+            dict: Stats including total_earned, total_points, by_category counts
+        """
+        db = get_db()
+
+        # Total earned and points
+        cursor = db.execute(
+            """
+            SELECT COUNT(*) as total, COALESCE(SUM(at.points), 0) as points
+            FROM achievement_earned ae
+            JOIN achievement_type at ON ae.achievement_type_id = at.id
+            """
+        )
+        row = cursor.fetchone()
+        total_earned = row['total']
+        total_points = row['points']
+
+        # Count by category
+        cursor = db.execute(
+            """
+            SELECT at.category, COUNT(*) as count
+            FROM achievement_earned ae
+            JOIN achievement_type at ON ae.achievement_type_id = at.id
+            GROUP BY at.category
+            """
+        )
+        by_category = {row['category']: row['count'] for row in cursor.fetchall()}
+
+        # Total available achievements
+        cursor = db.execute("SELECT COUNT(*) as total FROM achievement_type WHERE is_active = 1")
+        total_available = cursor.fetchone()['total']
+
+        return {
+            'total_earned': total_earned,
+            'total_available': total_available,
+            'total_points': total_points,
+            'by_category': by_category,
+            'completion_percentage': round((total_earned / total_available * 100) if total_available > 0 else 0, 1)
+        }
+
+    @staticmethod
+    def update_progress(code, progress_value, target_value, tracking_date=None):
+        """Update or insert achievement progress tracking.
+
+        Args:
+            code: Achievement type code
+            progress_value: Current progress value
+            target_value: Target value to complete achievement
+            tracking_date: Date to track (defaults to today)
+
+        Returns:
+            dict: Progress record
+        """
+        db = get_db()
+        tracking_date = tracking_date or date.today()
+        completed = progress_value >= target_value
+
+        db.execute(
+            """
+            INSERT INTO achievement_progress (achievement_code, tracking_date, progress_value, target_value, completed, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(achievement_code, tracking_date) DO UPDATE SET
+                progress_value = excluded.progress_value,
+                completed = excluded.completed,
+                updated_at = excluded.updated_at
+            """,
+            (code, tracking_date, progress_value, target_value, completed, datetime.now())
+        )
+        db.commit()
+
+        return {
+            'code': code,
+            'tracking_date': tracking_date.isoformat(),
+            'progress_value': progress_value,
+            'target_value': target_value,
+            'completed': completed,
+            'percentage': min(100, round(progress_value / target_value * 100)) if target_value > 0 else 0
+        }
+
+    @staticmethod
+    def get_progress(code, tracking_date=None):
+        """Get achievement progress for a specific date.
+
+        Args:
+            code: Achievement type code
+            tracking_date: Date to check (defaults to today)
+
+        Returns:
+            dict or None: Progress record if exists
+        """
+        db = get_db()
+        tracking_date = tracking_date or date.today()
+
+        cursor = db.execute(
+            """
+            SELECT achievement_code, tracking_date, progress_value, target_value, completed
+            FROM achievement_progress
+            WHERE achievement_code = ? AND tracking_date = ?
+            """,
+            (code, tracking_date)
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                'code': row['achievement_code'],
+                'tracking_date': row['tracking_date'],
+                'progress_value': row['progress_value'],
+                'target_value': row['target_value'],
+                'completed': bool(row['completed']),
+                'percentage': min(100, round(row['progress_value'] / row['target_value'] * 100)) if row['target_value'] > 0 else 0
+            }
+        return None

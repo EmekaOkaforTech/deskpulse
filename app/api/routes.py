@@ -482,3 +482,138 @@ def get_trend():
     except Exception:
         logger.exception("Failed to get trend")  # Exception auto-included by logger.exception()
         return jsonify({'error': 'Failed to calculate trend'}), 500
+
+
+# ============================================
+# Achievement API Endpoints - Phase 2
+# ============================================
+
+@bp.route('/achievements', methods=['GET'])
+def get_achievements():
+    """Get achievement summary including earned, available, and stats.
+
+    Returns:
+        JSON: Achievement summary with 200 status
+        {
+            "stats": {
+                "total_earned": 5,
+                "total_available": 13,
+                "total_points": 85,
+                "completion_percentage": 38.5,
+                "by_category": {"daily": 3, "milestone": 2}
+            },
+            "earned": [...],
+            "available": [...],
+            "recent": [...]
+        }
+
+    Error Response:
+        JSON: {"error": "Failed to retrieve achievements"} with 500 status
+    """
+    try:
+        from app.data.achievements import AchievementService
+        summary = AchievementService.get_achievement_summary()
+        logger.debug(f"Achievement summary: {summary['stats']['total_earned']}/{summary['stats']['total_available']} earned")
+        return jsonify(summary), 200
+
+    except Exception:
+        logger.exception("Failed to get achievements")
+        return jsonify({'error': 'Failed to retrieve achievements'}), 500
+
+
+@bp.route('/achievements/check', methods=['POST'])
+def check_achievements():
+    """Check and award any newly earned achievements.
+
+    Called after stats update to check if user has earned new achievements.
+    This is idempotent - calling multiple times won't duplicate awards.
+
+    Returns:
+        JSON: List of newly awarded achievements with 200 status
+        {
+            "newly_awarded": [
+                {
+                    "code": "posture_champion",
+                    "name": "Posture Champion",
+                    "icon": "🏆",
+                    "points": 15,
+                    ...
+                }
+            ],
+            "count": 1
+        }
+
+    Error Response:
+        JSON: {"error": "Failed to check achievements"} with 500 status
+    """
+    try:
+        from app.data.achievements import AchievementService
+
+        # Get today's stats for achievement checking
+        pause_timestamp = _get_pause_timestamp()
+        stats = PostureAnalytics.calculate_daily_stats(date.today(), pause_timestamp=pause_timestamp)
+
+        # Check and award achievements
+        newly_awarded = AchievementService.check_and_award_achievements(stats)
+
+        logger.info(f"Achievement check complete: {len(newly_awarded)} newly awarded")
+        return jsonify({
+            'newly_awarded': newly_awarded,
+            'count': len(newly_awarded)
+        }), 200
+
+    except Exception:
+        logger.exception("Failed to check achievements")
+        return jsonify({'error': 'Failed to check achievements'}), 500
+
+
+@bp.route('/achievements/unnotified', methods=['GET'])
+def get_unnotified_achievements():
+    """Get achievements that haven't been shown to the user yet.
+
+    Used by frontend to display achievement notifications.
+
+    Returns:
+        JSON: List of unnotified achievements with 200 status
+        {
+            "achievements": [...],
+            "count": 2
+        }
+    """
+    try:
+        from app.data.achievements import AchievementService
+        achievements = AchievementService.get_unnotified_achievements()
+
+        return jsonify({
+            'achievements': achievements,
+            'count': len(achievements)
+        }), 200
+
+    except Exception:
+        logger.exception("Failed to get unnotified achievements")
+        return jsonify({'error': 'Failed to retrieve achievements'}), 500
+
+
+@bp.route('/achievements/<int:earned_id>/notified', methods=['POST'])
+def mark_achievement_notified(earned_id):
+    """Mark an achievement as notified (user has seen it).
+
+    Args:
+        earned_id: The earned achievement ID from URL
+
+    Returns:
+        JSON: {"success": true} with 200 status
+
+    Error Response:
+        JSON: {"error": "..."} with 500 status
+    """
+    try:
+        from app.data.achievements import AchievementService
+        AchievementService.mark_notified(earned_id)
+
+        logger.debug(f"Achievement {earned_id} marked as notified")
+        return jsonify({'success': True}), 200
+
+    except Exception:
+        logger.exception(f"Failed to mark achievement {earned_id} as notified")
+        return jsonify({'error': 'Failed to update achievement'}), 500
