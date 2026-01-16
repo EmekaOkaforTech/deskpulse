@@ -212,6 +212,7 @@ def handle_pause_monitoring():
     Pauses alert tracking while keeping camera feed active for transparency.
 
     Architecture:
+    - Inserts pause marker into database (CRITICAL for analytics)
     - Calls AlertManager.pause_monitoring() to update backend state
     - Broadcasts monitoring_status to all connected clients (NFR-SC1)
     - Single global monitoring state (one AlertManager instance)
@@ -230,7 +231,24 @@ def handle_pause_monitoring():
 
         # Pause alert manager
         if cv_pipeline and cv_pipeline.alert_manager:
+            # CRITICAL FIX: Insert pause marker BEFORE pausing
+            # Without this marker, analytics cannot skip the paused period
+            current_state = cv_pipeline.last_posture_state
+            marker_state = current_state if current_state in ('good', 'bad') else 'good'
+            try:
+                from app.data.repository import PostureEventRepository
+                PostureEventRepository.insert_posture_event(
+                    posture_state=marker_state,
+                    user_present=True,
+                    confidence_score=0.95 if current_state in ('good', 'bad') else 0.5,
+                    metadata={'monitoring_paused': True}
+                )
+                logger.info(f"Pause marker inserted: state={marker_state}")
+            except Exception as e:
+                logger.warning(f"Failed to insert pause marker: {e}")
+
             cv_pipeline.alert_manager.pause_monitoring()
+            logger.info(f"Monitoring paused, pause_timestamp={cv_pipeline.alert_manager.pause_timestamp}")
 
             # Emit status update to all clients
             status = cv_pipeline.alert_manager.get_monitoring_status()
@@ -260,6 +278,7 @@ def handle_resume_monitoring():
 
     Architecture:
     - Calls AlertManager.resume_monitoring() to update backend state
+    - Inserts resume marker into database (CRITICAL for analytics)
     - Broadcasts monitoring_status to all connected clients (NFR-SC1)
     - Bad posture tracking starts fresh (doesn't count paused time)
 
@@ -278,6 +297,23 @@ def handle_resume_monitoring():
         # Resume alert manager
         if cv_pipeline and cv_pipeline.alert_manager:
             cv_pipeline.alert_manager.resume_monitoring()
+            logger.info("Monitoring resumed, pause_timestamp cleared")
+
+            # CRITICAL FIX: Insert resume marker AFTER resuming
+            # This marks the end of the paused period in the database
+            current_state = cv_pipeline.last_posture_state
+            marker_state = current_state if current_state in ('good', 'bad') else 'good'
+            try:
+                from app.data.repository import PostureEventRepository
+                PostureEventRepository.insert_posture_event(
+                    posture_state=marker_state,
+                    user_present=True,
+                    confidence_score=0.95 if current_state in ('good', 'bad') else 0.5,
+                    metadata={'resume_marker': True}
+                )
+                logger.info(f"Resume marker inserted: state={marker_state}")
+            except Exception as e:
+                logger.warning(f"Failed to insert resume marker: {e}")
 
             # Emit status update to all clients
             status = cv_pipeline.alert_manager.get_monitoring_status()
