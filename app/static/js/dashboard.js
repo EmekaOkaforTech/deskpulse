@@ -1558,6 +1558,7 @@ function updateMonitoringUI(data) {
     const statusDot = document.getElementById('status-dot');
     const postureMessage = document.getElementById('posture-message');
     const recordingIndicator = document.querySelector('.recording-indicator');
+    const cvStatus = document.getElementById('cv-status');
 
     // Defensive: Check elements exist
     if (!pauseBtn || !resumeBtn) {
@@ -1580,6 +1581,11 @@ function updateMonitoringUI(data) {
                 statusText.textContent = 'Monitoring Active';
             }
             // Status dot color will be updated by posture_update event
+
+            // Update CV Pipeline status to reflect active monitoring
+            if (cvStatus) {
+                cvStatus.textContent = 'Camera connected, monitoring active';
+            }
 
             // Update recording indicator - active state
             if (recordingIndicator) {
@@ -1605,6 +1611,11 @@ function updateMonitoringUI(data) {
             if (postureMessage) {
                 postureMessage.textContent =
                     'Privacy mode: Camera monitoring paused. Click "Resume" when ready.';
+            }
+
+            // Update CV Pipeline status to reflect paused state
+            if (cvStatus) {
+                cvStatus.textContent = 'Camera connected, monitoring PAUSED';
             }
 
             // Update recording indicator - paused state
