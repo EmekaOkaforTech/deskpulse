@@ -19,7 +19,8 @@ curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scri
 
 **Requirements:**
 - Raspberry Pi 4 or 5 (4GB+ RAM recommended)
-- Raspberry Pi OS (64-bit)
+- Raspberry Pi OS (64-bit) - Bookworm or Bullseye
+- Python 3.9, 3.10, or 3.11 (not 3.12+, MediaPipe limitation)
 - USB webcam (Logitech C270 or compatible)
 - Internet connection for initial setup
 
@@ -48,8 +49,9 @@ If you prefer manual setup or need to customize the installation:
 # Check your Pi model (must be Pi 4 or 5)
 cat /proc/cpuinfo | grep "Model"
 
-# Check Python version (must be 3.9+)
+# Check Python version (must be 3.9, 3.10, or 3.11)
 python3 --version
+# If you have Python 3.12+, MediaPipe won't work on ARM64
 
 # Install system dependencies
 sudo apt-get update
