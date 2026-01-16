@@ -317,7 +317,8 @@ class DevelopmentConfig(Config):
     DEBUG = True
     LOG_LEVEL = "DEBUG"
     MOCK_CAMERA = False
-    # Inherit HOST from base Config (reads from config.ini)
+    # Development binds to all interfaces for easier access from other machines
+    HOST = get_ini_value("dashboard", "host", "0.0.0.0")
 
 
 class TestingConfig(Config):
