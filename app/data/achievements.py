@@ -14,7 +14,7 @@ CRITICAL: All methods require Flask app context.
 import logging
 from datetime import datetime, date, timedelta
 from app.data.repository import AchievementRepository
-from app.data.analytics import calculate_daily_stats
+from app.data.analytics import PostureAnalytics
 
 logger = logging.getLogger('deskpulse.achievements')
 
@@ -135,7 +135,7 @@ class AchievementService:
         try:
             # Get today's stats if not provided
             if stats is None:
-                stats = calculate_daily_stats(target_date)
+                stats = PostureAnalytics.calculate_daily_stats(target_date)
 
             if not stats:
                 logger.debug("No stats available for achievement check")
@@ -281,8 +281,7 @@ class AchievementService:
 
         try:
             # Get 7-day history
-            from app.data.analytics import get_7_day_history
-            history = get_7_day_history(target_date)
+            history = PostureAnalytics.get_7_day_history()
 
             if len(history) < 7:
                 return awarded
