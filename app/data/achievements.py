@@ -254,16 +254,18 @@ class AchievementService:
             else:
                 logger.debug(f"Getting Started not earned: {monitoring_time/60:.1f} min < 30 min required")
 
-        # Transformation: First 90%+ score
+        # Transformation: First 90%+ score (requires 1+ hour monitoring)
         if not AchievementRepository.has_earned_achievement('transformation'):
             score = stats.get('posture_score', 0)
-            if score >= 90:
+            if score >= 90 and monitoring_time >= AchievementService.MIN_MONITORING_TIME_DAILY:
                 achievement = AchievementService._try_award(
                     'transformation',
-                    metadata={'score': round(score), 'date': target_date.isoformat()}
+                    metadata={'score': round(score), 'monitoring_minutes': round(monitoring_time/60), 'date': target_date.isoformat()}
                 )
                 if achievement:
                     awarded.append(achievement)
+            elif score >= 90:
+                logger.debug(f"Transformation not earned: only {monitoring_time/60:.1f} min monitoring (need 60 min)")
 
         # Habit Builder and Posture Pro: Consecutive days tracking
         consecutive = AchievementService._get_consecutive_tracking_days(target_date)
