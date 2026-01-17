@@ -9,6 +9,11 @@ Architecture:
 - Achievement checking runs after daily stats calculation
 
 CRITICAL: All methods require Flask app context.
+
+Achievement Validation Requirements:
+- All daily achievements require MIN_MONITORING_TIME_DAILY (1 hour)
+- Getting Started requires MIN_MONITORING_TIME_GETTING_STARTED (30 minutes)
+- Streak achievements require MIN_MONITORING_TIME_PER_DAY per day (30 minutes)
 """
 
 import logging
@@ -27,94 +32,39 @@ class AchievementService:
     - Award achievements when criteria met
     - Prevent duplicate awards (idempotent)
     - Queue notifications for newly earned achievements
+
+    IMPORTANT: Only achievements with implemented validation logic will be awarded.
+    Achievements defined in schema but not implemented here will NOT be awarded.
     """
 
-    # Achievement criteria definitions (business rules)
-    ACHIEVEMENT_CRITERIA = {
-        # Daily achievements - reset each day
-        'first_perfect_hour': {
-            'check': 'good_duration_minutes',
-            'threshold': 60,
-            'daily': True,
-            'description': '60+ consecutive minutes of good posture'
-        },
-        'posture_champion': {
-            'check': 'posture_score',
-            'threshold': 80,
-            'daily': True,
-            'description': '80%+ daily posture score'
-        },
-        'consistency_king': {
-            'check': 'good_duration_hours',
-            'threshold': 4,
-            'daily': True,
-            'description': '4+ hours of good posture in one day'
-        },
-        'early_bird': {
-            'check': 'early_morning_good',
-            'threshold': 1,
-            'daily': True,
-            'description': 'Good posture before 8 AM'
-        },
-        'night_owl': {
-            'check': 'evening_good',
-            'threshold': 1,
-            'daily': True,
-            'description': 'Good posture after 8 PM'
-        },
+    # Minimum monitoring time thresholds (in seconds)
+    MIN_MONITORING_TIME_DAILY = 3600      # 1 hour for daily achievements
+    MIN_MONITORING_TIME_GETTING_STARTED = 1800  # 30 minutes for Getting Started
+    MIN_MONITORING_TIME_PER_DAY = 1800    # 30 minutes per day for streak achievements
 
-        # Milestone achievements - one-time
-        'getting_started': {
-            'check': 'total_monitoring_days',
-            'threshold': 1,
-            'daily': False,
-            'description': 'Complete first day of monitoring'
-        },
-        'habit_builder': {
-            'check': 'consecutive_days',
-            'threshold': 7,
-            'daily': False,
-            'description': '7 consecutive days of tracking'
-        },
-        'posture_pro': {
-            'check': 'consecutive_days',
-            'threshold': 30,
-            'daily': False,
-            'description': '30 consecutive days of tracking'
-        },
-        'transformation': {
-            'check': 'peak_score',
-            'threshold': 90,
-            'daily': False,
-            'description': 'First time achieving 90%+ score'
-        },
-        'century_club': {
-            'check': 'total_good_hours',
-            'threshold': 100,
-            'daily': False,
-            'description': '100 hours of good posture accumulated'
-        },
+    # Implemented achievements (only these will be checked/awarded)
+    IMPLEMENTED_ACHIEVEMENTS = {
+        # Daily (require 1hr+ monitoring)
+        'first_perfect_hour',   # 60 min total good posture
+        'posture_champion',     # 80%+ score
+        'consistency_king',     # 4+ hours good posture
 
-        # Weekly achievements - reset each week
-        'week_warrior': {
-            'check': 'weekly_average',
-            'threshold': 70,
-            'weekly': True,
-            'description': '70%+ average for 7 days'
-        },
-        'improvement_hero': {
-            'check': 'weekly_improvement',
-            'threshold': 10,
-            'weekly': True,
-            'description': '10+ point improvement week over week'
-        },
-        'perfect_week': {
-            'check': 'days_above_80',
-            'threshold': 5,
-            'weekly': True,
-            'description': '5+ days with 80%+ score in a week'
-        }
+        # Milestone (one-time)
+        'getting_started',      # 30+ min monitoring
+        'transformation',       # First 90%+ score (with 1hr monitoring)
+        'habit_builder',        # 7 consecutive days (30min/day)
+        'posture_pro',          # 30 consecutive days (30min/day)
+
+        # Weekly (checked on Sundays)
+        'week_warrior',         # 70%+ average for 7 days
+        'perfect_week',         # 5+ days with 80%+
     }
+
+    # NOT YET IMPLEMENTED (defined in schema but not checked):
+    # - early_bird: Good posture before 8 AM
+    # - night_owl: Good posture after 8 PM
+    # - century_club: 100 hours accumulated good posture
+    # - improvement_hero: 10+ point weekly improvement
 
     @staticmethod
     def check_and_award_achievements(stats=None, target_date=None):
@@ -141,7 +91,12 @@ class AchievementService:
                 logger.debug("No stats available for achievement check")
                 return newly_awarded
 
-            # Check daily achievements
+            # Log current stats for debugging
+            monitoring_time = stats.get('user_present_duration_seconds', 0)
+            score = stats.get('posture_score', 0)
+            logger.debug(f"Achievement check: monitoring={monitoring_time/60:.1f}min, score={score:.1f}%")
+
+            # Check daily achievements (require 1hr+ monitoring)
             daily_awarded = AchievementService._check_daily_achievements(stats, target_date)
             newly_awarded.extend(daily_awarded)
 
@@ -149,7 +104,7 @@ class AchievementService:
             milestone_awarded = AchievementService._check_milestone_achievements(stats, target_date)
             newly_awarded.extend(milestone_awarded)
 
-            # Check weekly achievements (only on Sunday or when week completes)
+            # Check weekly achievements (only on Sunday)
             if target_date.weekday() == 6:  # Sunday
                 weekly_awarded = AchievementService._check_weekly_achievements(target_date)
                 newly_awarded.extend(weekly_awarded)
@@ -163,13 +118,11 @@ class AchievementService:
             logger.exception(f"Error checking achievements: {e}")
             return newly_awarded
 
-    # Minimum monitoring time required for daily achievements (in seconds)
-    MIN_MONITORING_TIME_DAILY = 3600  # 1 hour minimum monitoring for daily achievements
-    MIN_MONITORING_TIME_GETTING_STARTED = 1800  # 30 minutes for "Getting Started"
-
     @staticmethod
     def _check_daily_achievements(stats, target_date):
         """Check daily achievement criteria.
+
+        ALL daily achievements require minimum 1 hour of monitoring.
 
         Args:
             stats: Daily statistics dict
@@ -182,36 +135,48 @@ class AchievementService:
 
         # Get monitoring duration for validation
         monitoring_time = stats.get('user_present_duration_seconds', 0)
+        score = stats.get('posture_score', 0)
+        good_seconds = stats.get('good_duration_seconds', 0)
 
-        # Skip daily achievements if insufficient monitoring time
+        # CRITICAL: Skip ALL daily achievements if insufficient monitoring time
         if monitoring_time < AchievementService.MIN_MONITORING_TIME_DAILY:
-            logger.debug(f"Skipping daily achievements: only {monitoring_time/60:.1f} min monitoring (need 60 min)")
+            logger.debug(
+                f"Skipping daily achievements: {monitoring_time/60:.1f}min monitoring "
+                f"(need {AchievementService.MIN_MONITORING_TIME_DAILY/60:.0f}min)"
+            )
             return awarded
 
-        # First Perfect Hour: 60+ minutes TOTAL of good posture (not consecutive)
-        good_minutes = stats.get('good_duration_seconds', 0) / 60
+        logger.debug(f"Checking daily achievements: {monitoring_time/60:.1f}min monitoring, {score:.1f}% score")
+
+        # First Perfect Hour: 60+ minutes TOTAL of good posture
+        good_minutes = good_seconds / 60
         if good_minutes >= 60:
             achievement = AchievementService._try_award(
                 'first_perfect_hour',
                 since_date=target_date,
-                metadata={'good_minutes': round(good_minutes), 'monitoring_minutes': round(monitoring_time/60)}
+                metadata={
+                    'good_minutes': round(good_minutes),
+                    'monitoring_minutes': round(monitoring_time / 60)
+                }
             )
             if achievement:
                 awarded.append(achievement)
 
-        # Posture Champion: 80%+ score (requires 1+ hour monitoring)
-        score = stats.get('posture_score', 0)
+        # Posture Champion: 80%+ score
         if score >= 80:
             achievement = AchievementService._try_award(
                 'posture_champion',
                 since_date=target_date,
-                metadata={'score': round(score), 'monitoring_minutes': round(monitoring_time/60)}
+                metadata={
+                    'score': round(score),
+                    'monitoring_minutes': round(monitoring_time / 60)
+                }
             )
             if achievement:
                 awarded.append(achievement)
 
         # Consistency King: 4+ hours good posture
-        good_hours = stats.get('good_duration_seconds', 0) / 3600
+        good_hours = good_seconds / 3600
         if good_hours >= 4:
             achievement = AchievementService._try_award(
                 'consistency_king',
@@ -238,8 +203,9 @@ class AchievementService:
 
         # Get monitoring duration for validation
         monitoring_time = stats.get('user_present_duration_seconds', 0)
+        score = stats.get('posture_score', 0)
 
-        # Getting Started: First day with 30+ minutes of monitoring
+        # Getting Started: First session with 30+ minutes of monitoring
         if not AchievementRepository.has_earned_achievement('getting_started'):
             if monitoring_time >= AchievementService.MIN_MONITORING_TIME_GETTING_STARTED:
                 achievement = AchievementService._try_award(
@@ -252,23 +218,34 @@ class AchievementService:
                 if achievement:
                     awarded.append(achievement)
             else:
-                logger.debug(f"Getting Started not earned: {monitoring_time/60:.1f} min < 30 min required")
-
-        # Transformation: First 90%+ score (requires 1+ hour monitoring)
-        if not AchievementRepository.has_earned_achievement('transformation'):
-            score = stats.get('posture_score', 0)
-            if score >= 90 and monitoring_time >= AchievementService.MIN_MONITORING_TIME_DAILY:
-                achievement = AchievementService._try_award(
-                    'transformation',
-                    metadata={'score': round(score), 'monitoring_minutes': round(monitoring_time/60), 'date': target_date.isoformat()}
+                logger.debug(
+                    f"Getting Started not earned: {monitoring_time/60:.1f}min "
+                    f"(need {AchievementService.MIN_MONITORING_TIME_GETTING_STARTED/60:.0f}min)"
                 )
-                if achievement:
-                    awarded.append(achievement)
-            elif score >= 90:
-                logger.debug(f"Transformation not earned: only {monitoring_time/60:.1f} min monitoring (need 60 min)")
 
-        # Habit Builder and Posture Pro: Consecutive days tracking
+        # Transformation: First 90%+ score (requires 1hr+ monitoring)
+        if not AchievementRepository.has_earned_achievement('transformation'):
+            if score >= 90:
+                if monitoring_time >= AchievementService.MIN_MONITORING_TIME_DAILY:
+                    achievement = AchievementService._try_award(
+                        'transformation',
+                        metadata={
+                            'score': round(score),
+                            'monitoring_minutes': round(monitoring_time / 60),
+                            'date': target_date.isoformat()
+                        }
+                    )
+                    if achievement:
+                        awarded.append(achievement)
+                else:
+                    logger.debug(
+                        f"Transformation not earned: {monitoring_time/60:.1f}min "
+                        f"(need {AchievementService.MIN_MONITORING_TIME_DAILY/60:.0f}min)"
+                    )
+
+        # Habit Builder and Posture Pro: Consecutive days with meaningful tracking
         consecutive = AchievementService._get_consecutive_tracking_days(target_date)
+        logger.debug(f"Consecutive tracking days: {consecutive}")
 
         if consecutive >= 7 and not AchievementRepository.has_earned_achievement('habit_builder'):
             achievement = AchievementService._try_award(
@@ -292,6 +269,9 @@ class AchievementService:
     def _check_weekly_achievements(target_date):
         """Check weekly achievement criteria.
 
+        Only called on Sundays. Requires each day in the week to have
+        meaningful monitoring time.
+
         Args:
             target_date: End of week date (Sunday)
 
@@ -305,21 +285,39 @@ class AchievementService:
             history = PostureAnalytics.get_7_day_history()
 
             if len(history) < 7:
+                logger.debug(f"Weekly achievements skipped: only {len(history)} days of history")
                 return awarded
 
-            # Week Warrior: 70%+ average for 7 days
-            avg_score = sum(d.get('posture_score', 0) for d in history) / len(history)
+            # Validate each day has meaningful monitoring (30+ minutes)
+            valid_days = []
+            for day in history:
+                day_monitoring = day.get('user_present_duration_seconds', 0)
+                if day_monitoring >= AchievementService.MIN_MONITORING_TIME_PER_DAY:
+                    valid_days.append(day)
+
+            if len(valid_days) < 7:
+                logger.debug(
+                    f"Weekly achievements skipped: only {len(valid_days)}/7 days "
+                    f"with {AchievementService.MIN_MONITORING_TIME_PER_DAY/60:.0f}+ min monitoring"
+                )
+                return awarded
+
+            # Week Warrior: 70%+ average for 7 valid days
+            avg_score = sum(d.get('posture_score', 0) for d in valid_days) / len(valid_days)
             if avg_score >= 70:
                 achievement = AchievementService._try_award(
                     'week_warrior',
                     since_date=target_date - timedelta(days=6),
-                    metadata={'average_score': round(avg_score, 1)}
+                    metadata={
+                        'average_score': round(avg_score, 1),
+                        'valid_days': len(valid_days)
+                    }
                 )
                 if achievement:
                     awarded.append(achievement)
 
-            # Perfect Week: 5+ days with 80%+
-            days_above_80 = sum(1 for d in history if d.get('posture_score', 0) >= 80)
+            # Perfect Week: 5+ days with 80%+ score
+            days_above_80 = sum(1 for d in valid_days if d.get('posture_score', 0) >= 80)
             if days_above_80 >= 5:
                 achievement = AchievementService._try_award(
                     'perfect_week',
@@ -346,6 +344,11 @@ class AchievementService:
         Returns:
             dict or None: Achievement details if awarded, None if already earned
         """
+        # Only award implemented achievements
+        if code not in AchievementService.IMPLEMENTED_ACHIEVEMENTS:
+            logger.warning(f"Attempted to award unimplemented achievement: {code}")
+            return None
+
         try:
             # Check if already earned
             if AchievementRepository.has_earned_achievement(code, since_date=since_date):
@@ -354,22 +357,19 @@ class AchievementService:
 
             # Award achievement
             achievement = AchievementRepository.award_achievement(code, metadata)
-            logger.info(f"Achievement awarded: {code}")
+            logger.info(f"Achievement awarded: {code} with metadata: {metadata}")
             return achievement
 
         except Exception as e:
             logger.error(f"Error awarding achievement {code}: {e}")
             return None
 
-    # Minimum events per day to count as a "tracking day" for streaks
-    MIN_EVENTS_PER_TRACKING_DAY = 100  # ~100 events = ~2 minutes of monitoring minimum
-
     @staticmethod
     def _get_consecutive_tracking_days(end_date):
         """Count consecutive days with meaningful tracking data ending at end_date.
 
-        A day counts as a "tracking day" only if it has at least MIN_EVENTS_PER_TRACKING_DAY
-        events, ensuring the user actually monitored (not just opened the app briefly).
+        A day counts as a "tracking day" only if it has at least
+        MIN_MONITORING_TIME_PER_DAY seconds of monitoring.
 
         Args:
             end_date: Date to count backwards from
@@ -383,21 +383,36 @@ class AchievementService:
         consecutive = 0
         check_date = end_date
 
-        # Check up to 60 days back (more than needed for any achievement)
+        # Check up to 60 days back
         for _ in range(60):
+            # Get total monitoring time for this day
             cursor = db.execute(
                 """
-                SELECT COUNT(*) as count FROM posture_event
-                WHERE DATE(timestamp) = ?
+                SELECT
+                    COUNT(*) as event_count,
+                    MIN(timestamp) as first_event,
+                    MAX(timestamp) as last_event
+                FROM posture_event
+                WHERE DATE(timestamp) = ? AND user_present = 1
                 """,
                 (check_date,)
             )
             row = cursor.fetchone()
-            # Require minimum events to count as a tracking day
-            if row['count'] >= AchievementService.MIN_EVENTS_PER_TRACKING_DAY:
+
+            event_count = row['event_count'] or 0
+
+            # Estimate monitoring time: ~1 event per second when user present
+            # Require at least 30 minutes (1800 events) of monitoring
+            min_events_for_day = AchievementService.MIN_MONITORING_TIME_PER_DAY  # 1800 events ≈ 30 min
+
+            if event_count >= min_events_for_day:
                 consecutive += 1
                 check_date = check_date - timedelta(days=1)
             else:
+                logger.debug(
+                    f"Day {check_date}: {event_count} events "
+                    f"(need {min_events_for_day} for tracking day)"
+                )
                 break
 
         return consecutive
@@ -417,19 +432,23 @@ class AchievementService:
             # Create a set of earned achievement codes
             earned_codes = {a['code'] for a in earned}
 
-            # Mark available achievements as earned or not
+            # Only show implemented achievements as available
             available = []
             for atype in all_types:
-                available.append({
-                    **atype,
-                    'earned': atype['code'] in earned_codes
-                })
+                if atype['code'] in AchievementService.IMPLEMENTED_ACHIEVEMENTS:
+                    available.append({
+                        **atype,
+                        'earned': atype['code'] in earned_codes
+                    })
+
+            # Update stats to reflect only implemented achievements
+            stats['total_available'] = len(AchievementService.IMPLEMENTED_ACHIEVEMENTS)
 
             return {
                 'stats': stats,
                 'earned': earned,
                 'available': available,
-                'recent': earned[:5]  # Most recent 5
+                'recent': earned[:5]
             }
 
         except Exception as e:
