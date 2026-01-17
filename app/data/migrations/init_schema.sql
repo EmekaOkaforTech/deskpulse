@@ -68,24 +68,21 @@ CREATE TABLE IF NOT EXISTS achievement_progress (
 
 CREATE INDEX IF NOT EXISTS idx_achievement_progress_date ON achievement_progress(tracking_date);
 
--- Seed default achievement types
+-- Seed default achievement types (Open Source Edition - 9 achievements)
 -- NOTE: Daily achievements require 1+ hour monitoring; Getting Started requires 30+ min
+-- Premium achievements available in closed-source edition
 INSERT OR IGNORE INTO achievement_type (code, name, description, category, icon, points, tier) VALUES
     -- Daily Achievements (require 1+ hour of monitoring to prevent false awards)
     ('first_perfect_hour', 'First Perfect Hour', 'Accumulate 60 minutes of good posture in one day', 'daily', '⏱️', 10, 'bronze'),
     ('posture_champion', 'Posture Champion', 'Achieve 80%+ posture score (requires 1hr+ monitoring)', 'daily', '🏆', 15, 'silver'),
-    ('consistency_king', 'Consistency King', 'Maintain 4+ hours of good posture in one day', 'daily', '👑', 20, 'gold'),
-    ('early_bird', 'Early Bird', 'Start monitoring before 8 AM with good posture', 'daily', '🌅', 5, 'bronze'),
-    ('night_owl', 'Night Owl', 'Maintain good posture past 8 PM', 'daily', '🦉', 5, 'bronze'),
+    ('early_bird', 'Early Bird', '10+ minutes good posture before 8 AM (requires 1hr+ monitoring)', 'daily', '🌅', 10, 'bronze'),
+    ('night_owl', 'Night Owl', '10+ minutes good posture after 8 PM (requires 1hr+ monitoring)', 'daily', '🦉', 10, 'bronze'),
 
-    -- Weekly Achievements (checked on Sundays)
+    -- Weekly Achievements (checked on Sundays, require 7 days with 30+ min monitoring each)
     ('week_warrior', 'Week Warrior', 'Achieve 70%+ average score for 7 consecutive days', 'weekly', '⚔️', 50, 'gold'),
-    ('improvement_hero', 'Improvement Hero', 'Improve your weekly average by 10+ points', 'weekly', '📈', 30, 'silver'),
     ('perfect_week', 'Perfect Week', 'Achieve 80%+ score on 5 or more days in a week', 'weekly', '🌟', 40, 'gold'),
 
     -- Milestone Achievements (one-time awards)
     ('getting_started', 'Getting Started', 'Complete 30+ minutes of posture monitoring', 'milestone', '🚀', 10, 'bronze'),
-    ('habit_builder', 'Habit Builder', 'Track posture for 7 consecutive days', 'milestone', '🔨', 25, 'silver'),
-    ('posture_pro', 'Posture Pro', 'Track posture for 30 consecutive days', 'milestone', '🎯', 100, 'platinum'),
-    ('transformation', 'Transformation', 'Achieve a 90%+ daily score for the first time', 'milestone', '🦋', 50, 'gold'),
-    ('century_club', 'Century Club', 'Accumulate 100 hours of good posture', 'milestone', '💯', 200, 'platinum');
+    ('habit_builder', 'Habit Builder', 'Track posture for 7 consecutive days (30+ min each)', 'milestone', '🔨', 25, 'silver'),
+    ('transformation', 'Transformation', 'Achieve a 90%+ daily score for the first time (requires 1hr+ monitoring)', 'milestone', '🦋', 50, 'gold');
