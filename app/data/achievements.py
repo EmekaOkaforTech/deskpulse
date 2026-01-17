@@ -47,20 +47,12 @@ class AchievementService:
     EARLY_BIRD_CUTOFF = '08:00:00'        # Before 8 AM
     NIGHT_OWL_START = '20:00:00'          # After 8 PM
 
-    # Cumulative achievement thresholds
-    CENTURY_CLUB_HOURS = 100              # 100 hours total good posture
-    CENTURY_CLUB_SECONDS = 100 * 3600     # 360,000 seconds
-
-    # Weekly improvement threshold
-    IMPROVEMENT_HERO_POINTS = 10          # 10+ point improvement
-    MIN_VALID_DAYS_FOR_WEEKLY = 5         # Need 5+ valid days per week for comparison
-
     # Implemented achievements (only these will be checked/awarded)
+    # Open Source Edition: 9 achievements for basic motivation
     IMPLEMENTED_ACHIEVEMENTS = {
         # Daily (require 1hr+ monitoring)
         'first_perfect_hour',   # 60 min total good posture
         'posture_champion',     # 80%+ score
-        'consistency_king',     # 4+ hours good posture
         'early_bird',           # 10+ min good posture before 8 AM (+ 1hr daily monitoring)
         'night_owl',            # 10+ min good posture after 8 PM (+ 1hr daily monitoring)
 
@@ -68,14 +60,20 @@ class AchievementService:
         'getting_started',      # 30+ min monitoring
         'transformation',       # First 90%+ score (with 1hr monitoring)
         'habit_builder',        # 7 consecutive days (30min/day)
-        'posture_pro',          # 30 consecutive days (30min/day)
-        'century_club',         # 100 hours total good posture (cumulative)
 
         # Weekly (checked on Sundays)
         'week_warrior',         # 70%+ average for 7 days
         'perfect_week',         # 5+ days with 80%+
-        'improvement_hero',     # 10+ point improvement vs previous week
     }
+
+    # Premium achievements (available in closed-source edition):
+    # - consistency_king: 4+ hours good posture
+    # - posture_pro: 30 consecutive days
+    # - century_club: 100 hours total good posture
+    # - improvement_hero: 10+ point weekly improvement
+    # - posture_champion_streak_30/90: 80%+ for 30/90 consecutive days
+    # - century_club_gold/platinum: 500/1000 hours total
+    # - perfect_month: 80%+ every day of a calendar month
 
     @staticmethod
     def check_and_award_achievements(stats=None, target_date=None):
@@ -186,17 +184,6 @@ class AchievementService:
             if achievement:
                 awarded.append(achievement)
 
-        # Consistency King: 4+ hours good posture
-        good_hours = good_seconds / 3600
-        if good_hours >= 4:
-            achievement = AchievementService._try_award(
-                'consistency_king',
-                since_date=target_date,
-                metadata={'good_hours': round(good_hours, 1)}
-            )
-            if achievement:
-                awarded.append(achievement)
-
         # Early Bird: 10+ minutes good posture before 8 AM
         early_good_seconds = AchievementService._get_good_posture_in_time_window(
             target_date,
@@ -288,7 +275,7 @@ class AchievementService:
                         f"(need {AchievementService.MIN_MONITORING_TIME_DAILY/60:.0f}min)"
                     )
 
-        # Habit Builder and Posture Pro: Consecutive days with meaningful tracking
+        # Habit Builder: 7 consecutive days with meaningful tracking
         consecutive = AchievementService._get_consecutive_tracking_days(target_date)
         logger.debug(f"Consecutive tracking days: {consecutive}")
 
@@ -299,34 +286,6 @@ class AchievementService:
             )
             if achievement:
                 awarded.append(achievement)
-
-        if consecutive >= 30 and not AchievementRepository.has_earned_achievement('posture_pro'):
-            achievement = AchievementService._try_award(
-                'posture_pro',
-                metadata={'consecutive_days': consecutive}
-            )
-            if achievement:
-                awarded.append(achievement)
-
-        # Century Club: 100 hours total good posture (cumulative across all time)
-        if not AchievementRepository.has_earned_achievement('century_club'):
-            total_good_seconds = AchievementService._get_total_good_posture_seconds()
-            total_good_hours = total_good_seconds / 3600
-
-            if total_good_seconds >= AchievementService.CENTURY_CLUB_SECONDS:
-                achievement = AchievementService._try_award(
-                    'century_club',
-                    metadata={
-                        'total_good_hours': round(total_good_hours, 1),
-                        'date': target_date.isoformat()
-                    }
-                )
-                if achievement:
-                    awarded.append(achievement)
-            else:
-                logger.debug(
-                    f"Century Club progress: {total_good_hours:.1f}/{AchievementService.CENTURY_CLUB_HOURS} hours"
-                )
 
         return awarded
 
@@ -391,13 +350,6 @@ class AchievementService:
                 )
                 if achievement:
                     awarded.append(achievement)
-
-            # Improvement Hero: 10+ point improvement vs previous week
-            improvement_awarded = AchievementService._check_improvement_hero(
-                target_date, avg_score, len(valid_days)
-            )
-            if improvement_awarded:
-                awarded.append(improvement_awarded)
 
         except Exception as e:
             logger.warning(f"Error checking weekly achievements: {e}")
@@ -571,107 +523,6 @@ class AchievementService:
         )
 
         return good_count
-
-    @staticmethod
-    def _get_total_good_posture_seconds():
-        """Get total accumulated good posture time across all history.
-
-        Since posture_event stores ~1 event per second, the count approximates
-        total seconds of good posture ever recorded.
-
-        Returns:
-            int: Total good posture events (approximately seconds)
-        """
-        from app.data.database import get_db
-
-        db = get_db()
-        cursor = db.execute(
-            """
-            SELECT COUNT(*) as total_good
-            FROM posture_event
-            WHERE posture_state = 'good'
-              AND user_present = 1
-            """
-        )
-
-        row = cursor.fetchone()
-        total = row['total_good'] or 0
-
-        logger.debug(f"Total good posture: {total} events (~{total/3600:.1f} hours)")
-        return total
-
-    @staticmethod
-    def _check_improvement_hero(target_date, this_week_avg, this_week_valid_days):
-        """Check if user improved by 10+ points compared to previous week.
-
-        Args:
-            target_date: End of current week (Sunday)
-            this_week_avg: Average posture score for current week
-            this_week_valid_days: Number of valid days in current week
-
-        Returns:
-            dict or None: Achievement details if awarded, None otherwise
-        """
-        # Current week must have enough valid days
-        if this_week_valid_days < AchievementService.MIN_VALID_DAYS_FOR_WEEKLY:
-            logger.debug(
-                f"Improvement Hero skipped: current week has {this_week_valid_days} valid days "
-                f"(need {AchievementService.MIN_VALID_DAYS_FOR_WEEKLY})"
-            )
-            return None
-
-        # Get previous week's data (days 8-14 ago from target_date)
-        prev_week_start = target_date - timedelta(days=13)  # 13 days ago = start of prev week
-        prev_week_end = target_date - timedelta(days=7)     # 7 days ago = end of prev week
-
-        # Calculate previous week stats
-        prev_week_scores = []
-        prev_week_valid_days = 0
-
-        for days_back in range(13, 6, -1):  # 13, 12, 11, 10, 9, 8, 7 (previous Mon-Sun)
-            check_date = target_date - timedelta(days=days_back)
-            daily_stats = PostureAnalytics.calculate_daily_stats(check_date)
-
-            if daily_stats:
-                day_monitoring = daily_stats.get('user_present_duration_seconds', 0)
-                if day_monitoring >= AchievementService.MIN_MONITORING_TIME_PER_DAY:
-                    prev_week_valid_days += 1
-                    prev_week_scores.append(daily_stats.get('posture_score', 0))
-
-        # Previous week must also have enough valid days
-        if prev_week_valid_days < AchievementService.MIN_VALID_DAYS_FOR_WEEKLY:
-            logger.debug(
-                f"Improvement Hero skipped: previous week has {prev_week_valid_days} valid days "
-                f"(need {AchievementService.MIN_VALID_DAYS_FOR_WEEKLY})"
-            )
-            return None
-
-        # Calculate previous week average
-        prev_week_avg = sum(prev_week_scores) / len(prev_week_scores)
-
-        # Calculate improvement
-        improvement = this_week_avg - prev_week_avg
-
-        logger.debug(
-            f"Improvement Hero check: this_week={this_week_avg:.1f}%, "
-            f"prev_week={prev_week_avg:.1f}%, improvement={improvement:.1f} points"
-        )
-
-        # Award if improvement >= 10 points
-        if improvement >= AchievementService.IMPROVEMENT_HERO_POINTS:
-            return AchievementService._try_award(
-                'improvement_hero',
-                since_date=target_date - timedelta(days=6),
-                metadata={
-                    'this_week_avg': round(this_week_avg, 1),
-                    'prev_week_avg': round(prev_week_avg, 1),
-                    'improvement': round(improvement, 1),
-                    'this_week_days': this_week_valid_days,
-                    'prev_week_days': prev_week_valid_days
-                }
-            )
-
-        return None
 
     @staticmethod
     def get_achievement_summary():
