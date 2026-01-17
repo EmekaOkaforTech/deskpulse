@@ -93,17 +93,28 @@ def get_db():
 
         # Initialize schema if not already done (idempotent via IF NOT EXISTS)
         # Critical for :memory: databases which are fresh on each connection
+        # Also runs if new tables (like achievement_type) are missing from existing DB
         cursor = g.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='posture_event'"
         )
-        if cursor.fetchone() is None:
+        posture_table_exists = cursor.fetchone() is not None
+
+        cursor = g.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='achievement_type'"
+        )
+        achievement_table_exists = cursor.fetchone() is not None
+
+        # Run schema if core table missing OR if new achievement tables missing
+        if not posture_table_exists or not achievement_table_exists:
             try:
-                # Load and execute schema SQL
+                # Load and execute schema SQL (uses IF NOT EXISTS, safe to re-run)
                 with current_app.open_resource(
                     "data/migrations/init_schema.sql", mode="r"
                 ) as f:
                     g.db.executescript(f.read())
                 g.db.commit()
+                if not achievement_table_exists:
+                    logger.info("Achievement tables created (schema migration)")
             except Exception as e:
                 logger.error("Failed to initialize schema in get_db(): %s", e)
                 raise
