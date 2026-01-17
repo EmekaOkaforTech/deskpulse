@@ -36,6 +36,11 @@ let monitoringActive = null;
 let goodPostureStreakStart = null;
 let lastShownMessageIndex = -1;
 
+// Message throttling - prevent flickering by caching messages
+let currentCoachMessage = null;
+let lastMessageChangeTime = 0;
+const MESSAGE_MIN_DISPLAY_TIME = 10000; // Minimum 10 seconds between message changes
+
 // Good posture messages - rotate to avoid repetition
 const GOOD_POSTURE_MESSAGES = [
     "Great posture! Keep it up.",
@@ -84,20 +89,34 @@ let previousPostureState = null;
 
 /**
  * Select a Smart Coach message based on posture state and context.
+ * Implements throttling to prevent message flickering (min 10 seconds between changes).
+ *
  * @param {string} postureState - 'good' or 'bad'
  * @param {boolean} isRecovery - True if just corrected from bad posture
+ * @param {boolean} forceNewMessage - Force a new message (for state changes)
  * @returns {string} Selected message
  */
-function selectCoachMessage(postureState, isRecovery = false) {
+function selectCoachMessage(postureState, isRecovery = false, forceNewMessage = false) {
+    const now = Date.now();
+    const timeSinceLastChange = now - lastMessageChangeTime;
+
+    // Return cached message if not enough time has passed and same posture state
+    // Unless it's a recovery (state change) or forced
+    if (!forceNewMessage && !isRecovery && currentCoachMessage &&
+        timeSinceLastChange < MESSAGE_MIN_DISPLAY_TIME) {
+        return currentCoachMessage;
+    }
+
+    let newMessage;
+
     if (postureState === 'good') {
-        // Check for recovery (just corrected from bad)
+        // Check for recovery (just corrected from bad) - always show immediately
         if (isRecovery) {
             const idx = Math.floor(Math.random() * RECOVERY_MESSAGES.length);
-            return RECOVERY_MESSAGES[idx];
+            newMessage = RECOVERY_MESSAGES[idx];
         }
-
-        // Check for streak milestone
-        if (goodPostureStreakStart) {
+        // Check for streak milestone - always show immediately
+        else if (goodPostureStreakStart) {
             const streakMinutes = Math.floor((Date.now() - goodPostureStreakStart) / 60000);
             // Find the highest milestone reached
             for (let i = STREAK_MESSAGES.length - 1; i >= 0; i--) {
@@ -106,26 +125,41 @@ function selectCoachMessage(postureState, isRecovery = false) {
                     const lastMilestone = parseInt(sessionStorage.getItem('lastStreakMilestone') || '0');
                     if (STREAK_MESSAGES[i].minutes > lastMilestone) {
                         sessionStorage.setItem('lastStreakMilestone', STREAK_MESSAGES[i].minutes.toString());
-                        return STREAK_MESSAGES[i].message;
+                        newMessage = STREAK_MESSAGES[i].message;
+                        break;
                     }
                     break;
                 }
             }
         }
 
-        // Regular good posture message - rotate to avoid repetition
-        let idx;
-        do {
-            idx = Math.floor(Math.random() * GOOD_POSTURE_MESSAGES.length);
-        } while (idx === lastShownMessageIndex && GOOD_POSTURE_MESSAGES.length > 1);
-        lastShownMessageIndex = idx;
-        return GOOD_POSTURE_MESSAGES[idx];
-
+        // Regular good posture message - only if no milestone message
+        if (!newMessage) {
+            // If we have a cached good message and not enough time passed, keep it
+            if (currentCoachMessage && timeSinceLastChange < MESSAGE_MIN_DISPLAY_TIME) {
+                return currentCoachMessage;
+            }
+            let idx;
+            do {
+                idx = Math.floor(Math.random() * GOOD_POSTURE_MESSAGES.length);
+            } while (idx === lastShownMessageIndex && GOOD_POSTURE_MESSAGES.length > 1);
+            lastShownMessageIndex = idx;
+            newMessage = GOOD_POSTURE_MESSAGES[idx];
+        }
     } else {
-        // Bad posture message
+        // Bad posture - keep message stable, only change on state transition
+        if (currentCoachMessage && !forceNewMessage && timeSinceLastChange < MESSAGE_MIN_DISPLAY_TIME) {
+            return currentCoachMessage;
+        }
         const idx = Math.floor(Math.random() * BAD_POSTURE_MESSAGES.length);
-        return BAD_POSTURE_MESSAGES[idx];
+        newMessage = BAD_POSTURE_MESSAGES[idx];
     }
+
+    // Update cache
+    currentCoachMessage = newMessage;
+    lastMessageChangeTime = now;
+
+    return newMessage;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -439,8 +473,9 @@ function updatePostureStatus(data) {
         return;
     }
 
-    // Detect recovery (transitioning from bad to good posture)
+    // Detect state changes for message updates
     const isRecovery = previousPostureState === 'bad' && data.posture_state === 'good';
+    const isStateChange = previousPostureState !== data.posture_state;
 
     // Update status based on posture (UX Design: colorblind-safe palette)
     if (data.posture_state === 'good') {
@@ -453,8 +488,8 @@ function updatePostureStatus(data) {
             sessionStorage.setItem('lastStreakMilestone', '0');  // Reset milestones
         }
 
-        // Use Smart Coach message system
-        const coachMessage = selectCoachMessage('good', isRecovery);
+        // Use Smart Coach message system (force new message on state change)
+        const coachMessage = selectCoachMessage('good', isRecovery, isStateChange);
         postureMessage.textContent = coachMessage;
         postureMessage.style.color = '#10b981';  // Green (positive feedback)
 
@@ -481,14 +516,15 @@ function updatePostureStatus(data) {
                 postureMessage.textContent =
                     `⚠ Bad posture for ${durationStr}! Please correct your posture now.`;
             } else {
-                // Under threshold - show progress with encouraging message
-                const gentleReminder = selectCoachMessage('bad');
+                // Under threshold - show stable message with timer
+                // Only get new message on state change to prevent flicker
+                const gentleReminder = selectCoachMessage('bad', false, isStateChange);
                 postureMessage.textContent =
                     `${gentleReminder} (${durationStr} / ${threshold_minutes}m)`;
             }
         } else {
             // No duration tracking yet (just started bad posture)
-            postureMessage.textContent = selectCoachMessage('bad');
+            postureMessage.textContent = selectCoachMessage('bad', false, isStateChange);
         }
     }
 
