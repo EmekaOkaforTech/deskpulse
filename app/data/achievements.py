@@ -163,6 +163,10 @@ class AchievementService:
             logger.exception(f"Error checking achievements: {e}")
             return newly_awarded
 
+    # Minimum monitoring time required for daily achievements (in seconds)
+    MIN_MONITORING_TIME_DAILY = 3600  # 1 hour minimum monitoring for daily achievements
+    MIN_MONITORING_TIME_GETTING_STARTED = 1800  # 30 minutes for "Getting Started"
+
     @staticmethod
     def _check_daily_achievements(stats, target_date):
         """Check daily achievement criteria.
@@ -176,24 +180,32 @@ class AchievementService:
         """
         awarded = []
 
-        # First Perfect Hour: 60+ minutes of good posture
+        # Get monitoring duration for validation
+        monitoring_time = stats.get('user_present_duration_seconds', 0)
+
+        # Skip daily achievements if insufficient monitoring time
+        if monitoring_time < AchievementService.MIN_MONITORING_TIME_DAILY:
+            logger.debug(f"Skipping daily achievements: only {monitoring_time/60:.1f} min monitoring (need 60 min)")
+            return awarded
+
+        # First Perfect Hour: 60+ minutes TOTAL of good posture (not consecutive)
         good_minutes = stats.get('good_duration_seconds', 0) / 60
         if good_minutes >= 60:
             achievement = AchievementService._try_award(
                 'first_perfect_hour',
                 since_date=target_date,
-                metadata={'good_minutes': round(good_minutes)}
+                metadata={'good_minutes': round(good_minutes), 'monitoring_minutes': round(monitoring_time/60)}
             )
             if achievement:
                 awarded.append(achievement)
 
-        # Posture Champion: 80%+ score
+        # Posture Champion: 80%+ score (requires 1+ hour monitoring)
         score = stats.get('posture_score', 0)
         if score >= 80:
             achievement = AchievementService._try_award(
                 'posture_champion',
                 since_date=target_date,
-                metadata={'score': round(score)}
+                metadata={'score': round(score), 'monitoring_minutes': round(monitoring_time/60)}
             )
             if achievement:
                 awarded.append(achievement)
@@ -224,16 +236,23 @@ class AchievementService:
         """
         awarded = []
 
-        # Getting Started: First day completed
+        # Get monitoring duration for validation
+        monitoring_time = stats.get('user_present_duration_seconds', 0)
+
+        # Getting Started: First day with 30+ minutes of monitoring
         if not AchievementRepository.has_earned_achievement('getting_started'):
-            total_events = stats.get('total_events', 0)
-            if total_events >= 10:  # Minimum events to count as "monitored"
+            if monitoring_time >= AchievementService.MIN_MONITORING_TIME_GETTING_STARTED:
                 achievement = AchievementService._try_award(
                     'getting_started',
-                    metadata={'events': total_events, 'date': target_date.isoformat()}
+                    metadata={
+                        'monitoring_minutes': round(monitoring_time / 60),
+                        'date': target_date.isoformat()
+                    }
                 )
                 if achievement:
                     awarded.append(achievement)
+            else:
+                logger.debug(f"Getting Started not earned: {monitoring_time/60:.1f} min < 30 min required")
 
         # Transformation: First 90%+ score
         if not AchievementRepository.has_earned_achievement('transformation'):
@@ -340,15 +359,21 @@ class AchievementService:
             logger.error(f"Error awarding achievement {code}: {e}")
             return None
 
+    # Minimum events per day to count as a "tracking day" for streaks
+    MIN_EVENTS_PER_TRACKING_DAY = 100  # ~100 events = ~2 minutes of monitoring minimum
+
     @staticmethod
     def _get_consecutive_tracking_days(end_date):
-        """Count consecutive days with tracking data ending at end_date.
+        """Count consecutive days with meaningful tracking data ending at end_date.
+
+        A day counts as a "tracking day" only if it has at least MIN_EVENTS_PER_TRACKING_DAY
+        events, ensuring the user actually monitored (not just opened the app briefly).
 
         Args:
             end_date: Date to count backwards from
 
         Returns:
-            int: Number of consecutive days
+            int: Number of consecutive days with meaningful tracking
         """
         from app.data.database import get_db
 
@@ -366,7 +391,8 @@ class AchievementService:
                 (check_date,)
             )
             row = cursor.fetchone()
-            if row['count'] > 0:
+            # Require minimum events to count as a tracking day
+            if row['count'] >= AchievementService.MIN_EVENTS_PER_TRACKING_DAY:
                 consecutive += 1
                 check_date = check_date - timedelta(days=1)
             else:
