@@ -1771,6 +1771,10 @@ function updateMonitoringUI(data) {
                 cvStatus.textContent = 'Camera connected, monitoring PAUSED';
             }
 
+            // Reset good posture streak timer (prevents incorrect streak messages after resume)
+            goodPostureStreakStart = null;
+            sessionStorage.setItem('lastStreakMilestone', '0');
+
             // Clear alert banner (stale alert)
             clearDashboardAlert();
         }
