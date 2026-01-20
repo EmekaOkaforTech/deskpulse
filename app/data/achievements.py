@@ -530,14 +530,59 @@ class AchievementService:
 
         Returns:
             dict: Summary with earned, available, and progress data
+
+        Achievement Display Rules:
+        - milestone: Always show if ever earned (permanent)
+        - daily: Only show if earned TODAY
+        - weekly: Only show if earned THIS WEEK (Monday-Sunday)
         """
         try:
             stats = AchievementRepository.get_achievement_stats()
-            earned = AchievementRepository.get_earned_achievements(limit=20)
+            earned = AchievementRepository.get_earned_achievements(limit=100)  # Get more for filtering
             all_types = AchievementRepository.get_all_achievement_types()
 
-            # Create a set of earned achievement codes
-            earned_codes = {a['code'] for a in earned}
+            # Calculate date boundaries for filtering
+            today = date.today()
+            week_start = today - timedelta(days=today.weekday())  # Monday of current week
+
+            # Filter earned achievements by category and date
+            # - milestone: permanent (always show)
+            # - daily: only if earned today
+            # - weekly: only if earned this week
+            current_earned_codes = set()
+            current_earned_points = 0
+            filtered_earned = []
+
+            for achievement in earned:
+                category = achievement.get('category', 'milestone')
+                earned_at_str = achievement.get('earned_at', '')
+
+                # Parse earned_at date
+                try:
+                    if isinstance(earned_at_str, str):
+                        # Handle ISO format: "2025-01-19T14:30:00" or "2025-01-19"
+                        earned_date = datetime.fromisoformat(earned_at_str.replace('Z', '+00:00')).date()
+                    else:
+                        earned_date = earned_at_str.date() if hasattr(earned_at_str, 'date') else today
+                except (ValueError, AttributeError):
+                    earned_date = today  # Fallback to today if parsing fails
+
+                # Apply category-based filtering
+                include = False
+                if category == 'milestone':
+                    # Milestone: permanent, always include
+                    include = True
+                elif category == 'daily':
+                    # Daily: only include if earned TODAY
+                    include = (earned_date == today)
+                elif category == 'weekly':
+                    # Weekly: only include if earned THIS WEEK (Monday-Sunday)
+                    include = (earned_date >= week_start)
+
+                if include:
+                    current_earned_codes.add(achievement['code'])
+                    current_earned_points += achievement.get('points', 0)
+                    filtered_earned.append(achievement)
 
             # Only show implemented achievements as available
             available = []
@@ -545,17 +590,19 @@ class AchievementService:
                 if atype['code'] in AchievementService.IMPLEMENTED_ACHIEVEMENTS:
                     available.append({
                         **atype,
-                        'earned': atype['code'] in earned_codes
+                        'earned': atype['code'] in current_earned_codes
                     })
 
-            # Update stats to reflect only implemented achievements
+            # Update stats to reflect filtered achievements
             stats['total_available'] = len(AchievementService.IMPLEMENTED_ACHIEVEMENTS)
+            stats['total_earned'] = len(current_earned_codes)
+            stats['total_points'] = current_earned_points
 
             return {
                 'stats': stats,
-                'earned': earned,
+                'earned': filtered_earned,
                 'available': available,
-                'recent': earned[:5]
+                'recent': filtered_earned[:5]
             }
 
         except Exception as e:
