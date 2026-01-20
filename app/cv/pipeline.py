@@ -209,6 +209,15 @@ class CVPipeline:
 
         logger.info("CV pipeline stopped")
 
+    def is_running(self) -> bool:
+        """
+        Check if CV pipeline is currently running.
+
+        Returns:
+            bool: True if pipeline is running, False otherwise
+        """
+        return self.running
+
     def _send_watchdog_ping(self) -> None:
         """
         Send systemd watchdog ping (Layer 3 safety net).
