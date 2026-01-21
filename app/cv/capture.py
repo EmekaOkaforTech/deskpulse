@@ -13,6 +13,10 @@ os.environ['OPENCV_VIDEOIO_PRIORITY_OBSENSOR'] = '0'
 import cv2
 import logging
 from flask import current_app
+from typing import Optional
+
+from app.cv.camera_permissions_linux import check_camera_permissions
+from app.cv.camera_error_handler_linux import CameraErrorHandler
 
 logger = logging.getLogger('deskpulse.cv')
 
@@ -51,6 +55,8 @@ class CameraCapture:
         resolution (str): Resolution preset from config (default: '720p')
         cap (cv2.VideoCapture): OpenCV video capture object
         is_active (bool): Camera active status flag
+        error_handler (CameraErrorHandler): Error diagnostics handler
+        last_error (dict): Last error details (if any)
     """
 
     def __init__(self):
@@ -60,6 +66,8 @@ class CameraCapture:
         self.resolution = current_app.config.get('CAMERA_RESOLUTION', '720p')
         self.cap = None
         self.is_active = False
+        self.error_handler = CameraErrorHandler()
+        self.last_error: Optional[dict] = None
 
     def initialize(self) -> bool:
         """
@@ -69,6 +77,16 @@ class CameraCapture:
             bool: True if camera opened successfully, False otherwise
         """
         try:
+            # Pre-check: Verify camera permissions before attempting open
+            permissions = check_camera_permissions()
+            if not permissions['accessible']:
+                self.last_error = self.error_handler.handle_camera_error(
+                    self.camera_device if isinstance(self.camera_device, int) else 0
+                )
+                logger.error(f"Camera permission denied: {permissions['error']}")
+                logger.error(f"Solution: {self.last_error['solution']}")
+                return False
+
             # Raspberry Pi workaround: Add small delay before camera access
             import time
             time.sleep(0.5)
@@ -91,7 +109,10 @@ class CameraCapture:
             self.cap = cv2.VideoCapture(device_index)
 
             if not self.cap.isOpened():
-                logger.error("Camera device %d not found", device_index)
+                # Use error handler for specific diagnostics
+                self.last_error = self.error_handler.handle_camera_error(device_index)
+                logger.error(f"Camera error: {self.last_error['error_type']} - {self.last_error['message']}")
+                logger.error(f"Solution: {self.last_error['solution']}")
                 return False
 
             # Set camera properties from config
@@ -112,16 +133,23 @@ class CameraCapture:
             for _ in range(2):
                 ret, _ = self.cap.read()
                 if not ret:
-                    logger.error("Camera warmup failed - unable to read frames")
+                    # Use error handler for specific diagnostics
+                    self.last_error = self.error_handler.handle_camera_error(device_index)
+                    logger.error(f"Camera warmup failed: {self.last_error['error_type']}")
+                    logger.error(f"Solution: {self.last_error['solution']}")
                     self.cap.release()
                     return False
 
             self.is_active = True
+            self.last_error = None  # Clear any previous error
             logger.info("Camera connected: device %d at %s", device_index, self.resolution)
             return True
 
-        except Exception:
-            logger.exception("Camera initialization failed")
+        except Exception as e:
+            # Use error handler for exception diagnostics
+            device_idx = self.camera_device if isinstance(self.camera_device, int) else 0
+            self.last_error = self.error_handler.handle_camera_error(device_idx, exception=e)
+            logger.exception(f"Camera initialization failed: {self.last_error['error_type']}")
             return False
 
     def read_frame(self) -> tuple[bool, 'np.ndarray | None']:
@@ -154,6 +182,20 @@ class CameraCapture:
         if self.cap and self.cap.isOpened():
             return self.cap.get(cv2.CAP_PROP_FPS)
         return 0
+
+    def get_last_error(self) -> Optional[dict]:
+        """
+        Get last camera error details.
+
+        Returns:
+            dict: Error details with keys:
+                - error_type: str (PERMISSION_DENIED, CAMERA_IN_USE, NOT_FOUND, DRIVER_ERROR, UNKNOWN)
+                - message: str (user-facing message)
+                - solution: str (step-by-step fix instructions)
+                - retry_recommended: bool
+            Or None if no error occurred.
+        """
+        return self.last_error
 
     def __enter__(self) -> 'CameraCapture':
         """Context manager entry - initialize camera."""
