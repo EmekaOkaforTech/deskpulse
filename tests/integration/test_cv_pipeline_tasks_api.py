@@ -13,7 +13,7 @@ SUCCESS CRITERIA:
 - No crashes or exceptions
 - Posture classification produces valid results ('good' or 'bad')
 
-ENTERPRISE REQUIREMENT: No mocks allowed (Boss requirement).
+ENTERPRISE REQUIREMENT: No mocks allowed (project requirement).
 """
 
 import pytest
