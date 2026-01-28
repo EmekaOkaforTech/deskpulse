@@ -99,7 +99,7 @@ DeskPulse uses MediaPipe Pose to track your nose, shoulders, and hips. Proper ca
 - Ensure camera is at eye level or above (not below chest)
 - Move camera to front-center position (not extreme side angle)
 - Check that hips are visible in frame (not cropped by desk)
-- Adjust angle threshold in config if needed: `/home/dev/.config/deskpulse/config.ini`
+- Adjust angle threshold in config if needed: `~/.config/deskpulse/config.ini`
 
 ### "Posture Flickers Between Good/Bad"
 **Problem**: Borderline posture or unstable tracking
@@ -114,7 +114,7 @@ DeskPulse uses MediaPipe Pose to track your nose, shoulders, and hips. Proper ca
 
 ### Adjust Sensitivity (Advanced)
 
-Edit: `/home/dev/.config/deskpulse/config.ini`
+Edit: `~/.config/deskpulse/config.ini`
 
 ```ini
 [posture]
