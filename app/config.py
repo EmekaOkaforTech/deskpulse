@@ -348,6 +348,7 @@ class TestingConfig(Config):
     DASHBOARD_UPDATE_INTERVAL = 2
     POSTURE_ALERT_THRESHOLD = 600
     SECRET_KEY = "test-secret-key"
+    HOST = "127.0.0.1"  # Hardcoded: TestingConfig must not depend on INI files
     CORS_ALLOWED_ORIGINS = ["http://localhost:5000", "http://127.0.0.1:5000"]
 
 

@@ -1,7 +1,7 @@
 # DeskPulse Feature Roadmap
 
-**Last Updated:** 2026-01-16
-**Status:** Active Development
+**Last Updated:** 2026-03-03
+**Status:** Phase 1 & 2 Complete
 
 ---
 
@@ -22,7 +22,7 @@ DeskPulse aims to transform posture monitoring from passive observation to activ
 
 ### Phase 1: Smart Coach Messages (Open Source)
 
-**Status:** In Development
+**Status:** ✅ Complete
 
 Replace static "Good posture" / "Bad posture" messages with contextual, encouraging feedback.
 
@@ -67,7 +67,7 @@ Replace static "Good posture" / "Bad posture" messages with contextual, encourag
 
 ### Phase 2: Achievement System (Open Source)
 
-**Status:** Planned
+**Status:** ✅ Complete
 
 Milestone badges to celebrate progress and encourage consistency.
 

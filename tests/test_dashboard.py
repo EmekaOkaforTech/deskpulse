@@ -305,12 +305,12 @@ class TestDashboardJavaScriptFunctions:
     """Test suite for JavaScript function behavior via backend testing."""
 
     def test_format_duration_zero_seconds(self, client):
-        """Test formatDuration() edge case: zero seconds returns '0m'."""
+        """Test formatDuration() edge case: zero seconds returns '0s'."""
         # This tests that the analytics backend format_duration matches JS frontend
         from app.data.analytics import format_duration
 
         formatted = format_duration(0)
-        assert formatted == '0m'
+        assert formatted == '0s'
 
     def test_format_duration_only_minutes(self, client):
         """Test formatDuration() with minutes only (no hours)."""

@@ -182,8 +182,8 @@ class TestInstallerConfiguration:
             return f.read()
 
     def test_has_total_steps_constant(self, installer_content):
-        """Test that TOTAL_STEPS=11 is defined."""
-        assert re.search(r'TOTAL_STEPS=11', installer_content), "TOTAL_STEPS not set to 11"
+        """Test that TOTAL_STEPS=12 is defined."""
+        assert re.search(r'TOTAL_STEPS=12', installer_content), "TOTAL_STEPS not set to 12"
 
     def test_has_repo_url(self, installer_content):
         """Test that REPO_URL is defined."""

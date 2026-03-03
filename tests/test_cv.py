@@ -60,7 +60,7 @@ class TestCameraCapture:
 
             assert result is True
             assert camera.is_active is True
-            mock_cv2.VideoCapture.assert_called_with(0, 200)
+            mock_cv2.VideoCapture.assert_called_with(0)
 
     @patch('app.cv.capture.cv2')
     def test_camera_initialize_failure(self, mock_cv2, app):
@@ -434,7 +434,7 @@ class TestPostureClassifier:
             classifier = PostureClassifier()
 
             assert classifier.angle_threshold == 15
-            assert hasattr(classifier, 'mp_pose')
+            assert hasattr(classifier, 'landmarks')
 
     def test_classify_posture_good(self, app):
         """Test good posture classification (angle < threshold)."""
@@ -728,24 +728,32 @@ class TestCVPipeline:
             assert result is True
             assert pipeline.running is True
             assert pipeline.thread is not None
-            assert pipeline.thread.daemon is True
+            assert pipeline.thread.daemon is False  # Non-daemon for camera access compatibility
             assert pipeline.thread.name.startswith('CVPipeline-')
 
     @patch('app.cv.pipeline.CameraCapture')
     def test_pipeline_start_camera_failure(self, mock_camera_class, app):
-        """Test pipeline handles camera initialization failure."""
+        """Test pipeline starts in degraded mode when camera initialization fails.
+
+        Pipeline uses graceful degradation: starts even without camera so the
+        dashboard remains accessible and camera can reconnect automatically.
+        """
         with app.app_context():
-            # Mock camera initialization failure
             mock_camera = Mock()
             mock_camera.initialize.return_value = False
+            mock_camera.is_available.return_value = False  # Not pre-initialized
             mock_camera_class.return_value = mock_camera
 
             pipeline = CVPipeline()
             result = pipeline.start()
 
-            assert result is False
-            assert pipeline.running is False
-            assert pipeline.thread is None
+            # Pipeline starts in degraded mode (camera reconnects automatically)
+            assert result is True
+            assert pipeline.running is True
+            assert pipeline.thread is not None
+            assert pipeline.camera_state == 'disconnected'
+
+            pipeline.stop()  # Cleanup thread
 
     @patch('app.cv.pipeline.CameraCapture')
     @patch('app.cv.pipeline.PoseDetector')

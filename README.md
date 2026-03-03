@@ -423,8 +423,8 @@ pip install -r requirements.txt
 | Epic 2: Monitoring | ✅ Complete | Real-time posture detection with MediaPipe |
 | Epic 3: Alerts | ✅ Complete | Desktop and browser notifications |
 | Epic 4: Analytics | ✅ Complete | 7-day history and trend tracking |
-| Epic 5: Reliability | 🔜 Planned | Health monitoring, auto-updates |
-| Epic 6: Community | 🔜 Planned | CI/CD, contribution infrastructure |
+| Epic 5: Reliability | ✅ Complete | Database backup, CI pipeline, GitHub release |
+| Epic 6: Community | ✅ Complete | CI/CD, contribution infrastructure, pre-commit hooks |
 
 ## Contributing
 

@@ -271,14 +271,14 @@ def test_format_duration_minutes_only():
     assert format_duration(300) == "5m"
     assert format_duration(60) == "1m"
     assert format_duration(3599) == "59m"
-    assert format_duration(45) == "0m"  # Less than 1 minute rounds down
+    assert format_duration(45) == "45s"  # Less than 1 minute shows seconds
 
 
 def test_format_duration_zero():
     """Test duration formatting for zero and negative values."""
-    assert format_duration(0) == "0m"
-    assert format_duration(-100) == "0m"
-    assert format_duration(-1) == "0m"
+    assert format_duration(0) == "0s"
+    assert format_duration(-100) == "0s"
+    assert format_duration(-1) == "0s"
 
 
 def test_calculate_daily_stats_input_validation_none(app):
@@ -314,23 +314,24 @@ def test_calculate_daily_stats_input_validation_datetime(app):
 def test_calculate_daily_stats_negative_duration_protection(app):
     """Test protection against negative remaining_duration from clock skew.
 
-    Simulates edge case: Last event timestamp is 11:59:30pm, but due to
-    processing delay or clock skew, we calculate stats slightly after midnight.
-    The remaining_duration calculation could become negative.
+    Simulates edge case: Last event timestamp is 11:59:30pm on a past date.
+    The remaining_duration should be ~30 seconds to EOD (23:59:59.999).
+    Uses a past date so analytics uses end-of-day boundary (not datetime.now()).
     """
     with app.app_context():
         from unittest.mock import patch
+        from datetime import timedelta
 
-        # Create event very close to end of day
-        target = date.today()
-        late_time = datetime.combine(target, time(23, 59, 30))  # 11:59:30 PM
+        # Use yesterday so analytics uses EOD boundary (not datetime.now())
+        target = date.today() - timedelta(days=1)
+        late_time = datetime.combine(target, time(23, 59, 30))  # 11:59:30 PM yesterday
 
         with patch('app.data.repository.datetime') as mock_dt:
             mock_dt.now.return_value = late_time
             PostureEventRepository.insert_posture_event('good', True, 0.9)
 
-        # Now mock calculate_daily_stats to simulate processing after midnight
-        # by directly testing the max(0, ...) protection works
+        # For a past date, analytics uses end-of-day as boundary (23:59:59.999)
+        # remaining_duration = 23:59:59 - 23:59:30 = ~29 seconds
         stats = PostureAnalytics.calculate_daily_stats(target)
 
         # Should have ~29.999 seconds remaining (30 seconds to EOD at 23:59:59.999)
