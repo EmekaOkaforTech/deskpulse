@@ -12,7 +12,7 @@ import contextlib
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress all TF logs (ERROR only)
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Suppress oneDNN messages
 os.environ['MEDIAPIPE_DISABLE_GPU'] = '1'  # Disable GPU (not available on Pi)
-os.environ['GLOG_minloglevel'] = '2'  # Suppress glog (used by MediaPipe)
+os.environ['GLOG_minloglevel'] = '3'  # Suppress glog INFO/WARNING (errors only)
 
 # Suppress Python warnings
 warnings.filterwarnings('ignore', category=UserWarning)

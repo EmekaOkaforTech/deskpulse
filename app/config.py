@@ -18,7 +18,7 @@ SYSTEM_CONFIG_PATH = "/etc/deskpulse/config.ini"
 USER_CONFIG_PATH = os.path.expanduser("~/.config/deskpulse/config.ini")
 
 # Module-level config parser - loaded once at import time
-_config = configparser.ConfigParser()
+_config = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
 _config.read([SYSTEM_CONFIG_PATH, USER_CONFIG_PATH])
 
 
