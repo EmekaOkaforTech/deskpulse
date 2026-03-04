@@ -14,6 +14,7 @@ INSTALL_DIR="$HOME/deskpulse"
 VERSION="${VERSION:-main}"  # Support VERSION=v1.0.0 curl | bash
 INTERACTIVE=true
 ENABLE_NETWORK=false  # Default: localhost only (secure)
+PYTHON_CMD="python3"  # May be overridden to python3.11 if system Python > 3.11
 
 # === Logging ===
 INSTALL_LOG="/tmp/deskpulse-install-$(date +%Y%m%d-%H%M%S).log"
@@ -78,29 +79,50 @@ check_prerequisites() {
     fi
     success "Raspberry Pi OS detected"
 
-    # Python version check
+    # Python version check (MediaPipe requires 3.9-3.11 on ARM64)
     PY_VERSION=$(python3 --version | grep -oP '3\.\d+' | cut -d. -f2)
     if [ "$PY_VERSION" -lt 9 ]; then
-        error "Python 3.9+ required, found 3.$PY_VERSION"
+        error "Python 3.9-3.11 required, found 3.$PY_VERSION"
         exit 1
     fi
-    success "Python 3.$PY_VERSION"
+    if [ "$PY_VERSION" -gt 11 ]; then
+        warning "Python 3.$PY_VERSION detected — MediaPipe requires Python 3.9-3.11"
+        # Try to find a compatible Python version
+        COMPAT_PYTHON=""
+        for v in 11 10 9; do
+            if command -v "python3.$v" &>/dev/null; then
+                COMPAT_PYTHON="python3.$v"
+                break
+            fi
+        done
+        if [ -z "$COMPAT_PYTHON" ]; then
+            error "No compatible Python (3.9-3.11) found. Install with:"
+            echo "  sudo apt-get install python3.11 python3.11-venv"
+            exit 1
+        fi
+        PYTHON_CMD="$COMPAT_PYTHON"
+        COMPAT_VER=$("$COMPAT_PYTHON" --version | grep -oP '3\.\d+')
+        success "Using $COMPAT_VER (compatible with MediaPipe)"
+    else
+        PYTHON_CMD="python3"
+        success "Python 3.$PY_VERSION"
+    fi
 
     # Python venv module check (E4)
-    if ! python3 -m venv --help &>/dev/null; then
-        error "python3-venv module not available"
+    if ! "$PYTHON_CMD" -m venv --help &>/dev/null; then
+        error "python3-venv module not available for $PYTHON_CMD"
         echo "Install with: sudo apt-get install python3-venv"
         exit 1
     fi
     success "python3-venv module available"
 
     # RAM check
-    RAM_MB=$(free -m | awk '/Mem:/ {print $7}')
+    RAM_MB=$(free -m | awk '/Mem:/ {print $2}')
     if [ "$RAM_MB" -lt 4096 ]; then
-        error "4GB+ RAM required, found ${RAM_MB}MB available"
+        error "4GB+ RAM required, found $((RAM_MB / 1024))GB installed"
         exit 1
     fi
-    success "$((RAM_MB / 1024))GB RAM available"
+    success "$((RAM_MB / 1024))GB RAM installed"
 
     # Disk space check (18GB = 16 + 2 for MediaPipe) (E2)
     DISK_GB=$(df -BG ~/ | awk 'NR==2 {print $4}' | tr -d 'G')
@@ -180,7 +202,7 @@ clone_repository() {
 
 setup_python_venv() {
     progress "Setting up Python environment (~5 minutes)..."
-    python3 -m venv venv
+    ${PYTHON_CMD:-python3} -m venv venv
     source venv/bin/activate
     pip install --upgrade pip setuptools wheel -q
     pip install -r requirements.txt -q
