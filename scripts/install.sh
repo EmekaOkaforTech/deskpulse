@@ -1,7 +1,10 @@
 #!/bin/bash
 # DeskPulse One-Line Installer
 # Usage: curl -fsSL <url> | bash
+#   Or: curl -fsSL <url> -o /tmp/deskpulse-install.sh && bash /tmp/deskpulse-install.sh
 #   Or: bash install.sh [--help|--uninstall|--update|--version <tag>|--yes]
+# Note: use /tmp/deskpulse-install.sh not /tmp/install.sh to avoid permission
+#       conflicts when multiple users share /tmp
 
 set -e          # Exit on error
 set -u          # Exit on undefined variable
@@ -13,6 +16,8 @@ REPO_URL="https://github.com/EmekaOkaforTech/deskpulse.git"
 INSTALL_DIR="$HOME/deskpulse"
 VERSION="${VERSION:-main}"  # Support VERSION=v1.0.0 curl | bash
 INTERACTIVE=true
+# Auto-disable interactive mode when stdin is not a terminal (curl | bash pattern)
+[ -t 0 ] || INTERACTIVE=false
 ENABLE_NETWORK=false  # Default: localhost only (secure)
 PYTHON_CMD="python3"  # May be overridden to python3.11 if system Python > 3.11
 
@@ -221,8 +226,8 @@ setup_python_venv() {
 verify_camera() {
     progress "Checking for camera..."
 
-    # Fixed camera detection logic (C4)
-    if v4l2-ctl --list-devices 2>/dev/null | grep -q "/dev/video"; then
+    # Detect USB webcams only — exclude Pi hardware codec devices (video10+)
+    if v4l2-ctl --list-devices 2>/dev/null | grep -qE "/dev/video[0-9][^0-9]|/dev/video[0-9]$"; then
         CAMERA_NAME=$(v4l2-ctl --list-devices 2>/dev/null | head -1)
         success "Camera detected: $CAMERA_NAME"
     else
@@ -238,9 +243,14 @@ download_mediapipe_models() {
     echo "MediaPipe downloading ~2GB models (no progress available)"
     echo "This may take 5-10 minutes depending on connection speed..."
 
+    # Suppress MediaPipe/TFLite C++ noise during model download
+    export TF_CPP_MIN_LOG_LEVEL=3
+    export GLOG_minloglevel=3
+    export MEDIAPIPE_DISABLE_GPU=1
+
     # Show spinner instead of impossible progress bar (C5)
     source venv/bin/activate
-    python3 -c "import mediapipe as mp; mp.solutions.pose.Pose()" &
+    python3 -c "import mediapipe as mp; mp.solutions.pose.Pose()" 2>/dev/null &
     PID=$!
 
     # Spinner while downloading
@@ -354,12 +364,14 @@ initialize_database() {
     sudo chown "$USER:$USER" /var/lib/deskpulse
 
     source venv/bin/activate
-    PYTHONPATH=. venv/bin/python3 << 'EOF'
+    export TF_CPP_MIN_LOG_LEVEL=3
+    export GLOG_minloglevel=3
+    export MEDIAPIPE_DISABLE_GPU=1
+    PYTHONPATH=. venv/bin/python3 2>/dev/null << 'EOF'
 from app import create_app
+from app.data.database import init_db_schema
 app = create_app('production')
-with app.app_context():
-    from app.data.database import init_db
-    init_db()
+init_db_schema(app)
 EOF
 
     success "Database initialized at /var/lib/deskpulse/posture.db (WAL mode)"
@@ -718,6 +730,15 @@ EOF
     if [ "$INTERACTIVE" = true ]; then
         read -p "Press Enter to continue or Ctrl+C to cancel..."
     fi
+
+    # Cache sudo credentials upfront — avoids mid-install password prompts
+    echo "This installer requires sudo for system packages and service setup."
+    sudo -v
+    # Keep sudo alive for the duration of the install
+    ( while true; do sudo -n true; sleep 50; done ) &
+    SUDO_KEEPALIVE_PID=$!
+    trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null; cleanup' ERR
+    trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null' EXIT
 
     # Run installation
     check_prerequisites

@@ -19,8 +19,8 @@ curl -fsSL https://raw.githubusercontent.com/EmekaOkaforTech/deskpulse/main/scri
 
 **Requirements:**
 - Raspberry Pi 4 or 5 (4GB+ RAM recommended)
-- Raspberry Pi OS (64-bit) - Bookworm or Bullseye
-- Python 3.9, 3.10, or 3.11 (not 3.12+, MediaPipe limitation)
+- Raspberry Pi OS (64-bit) - Bookworm or newer
+- Python 3.9–3.12 (auto-detected by installer)
 - USB webcam (Logitech C270 or compatible)
 - Internet connection for initial setup
 
