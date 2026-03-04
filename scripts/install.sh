@@ -61,12 +61,15 @@ check_prerequisites() {
     progress "Checking prerequisites (~10 seconds)..."
 
     # Hardware check
-    if ! grep -qE "Cortex-A72|A76" /proc/cpuinfo; then
-        error "Raspberry Pi 3 not supported (detected: $(grep 'model name' /proc/cpuinfo | head -1))"
+    # Use the Model field from /proc/cpuinfo — reliable on both 32-bit and 64-bit Pi OS.
+    # The "Cortex-A72/A76" string only appears on 32-bit kernels and is absent on aarch64.
+    PI_MODEL=$(grep "^Model" /proc/cpuinfo | awk -F': ' '{print $2}')
+    if ! echo "$PI_MODEL" | grep -qE "Raspberry Pi [45]"; then
+        error "Unsupported hardware: ${PI_MODEL:-Unknown device}"
         echo "deskpulse requires Raspberry Pi 4 or 5"
         exit 1
     fi
-    success "Raspberry Pi 4/5 detected"
+    success "Detected: $PI_MODEL"
 
     # OS check
     if ! grep -qE "ID=raspbian|ID=debian" /etc/os-release; then
