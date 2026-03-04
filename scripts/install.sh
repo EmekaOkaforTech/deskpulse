@@ -79,25 +79,32 @@ check_prerequisites() {
     fi
     success "Raspberry Pi OS detected"
 
-    # Python version check (MediaPipe requires 3.9-3.11 on ARM64)
+    # Python version check (MediaPipe requires 3.9-3.12 on ARM64)
     PY_VERSION=$(python3 --version | grep -oP '3\.\d+' | cut -d. -f2)
     if [ "$PY_VERSION" -lt 9 ]; then
-        error "Python 3.9-3.11 required, found 3.$PY_VERSION"
+        error "Python 3.9-3.12 required, found 3.$PY_VERSION"
         exit 1
     fi
-    if [ "$PY_VERSION" -gt 11 ]; then
-        warning "Python 3.$PY_VERSION detected — MediaPipe requires Python 3.9-3.11"
+    if [ "$PY_VERSION" -gt 12 ]; then
+        warning "Python 3.$PY_VERSION detected — MediaPipe requires Python 3.9-3.12"
         # Try to find a compatible Python version
         COMPAT_PYTHON=""
-        for v in 11 10 9; do
-            if command -v "python3.$v" &>/dev/null; then
+        for v in 12 11 10 9; do
+            # Check standard path first, then pyenv
+            if command -v "python3.$v" &>/dev/null && "python3.$v" --version &>/dev/null 2>&1; then
                 COMPAT_PYTHON="python3.$v"
                 break
+            elif [ -n "${PYENV_ROOT:-}" ]; then
+                PYENV_BIN=$(ls "$PYENV_ROOT/versions/3.$v."*/bin/python3 2>/dev/null | tail -1)
+                if [ -n "$PYENV_BIN" ] && "$PYENV_BIN" --version &>/dev/null 2>&1; then
+                    COMPAT_PYTHON="$PYENV_BIN"
+                    break
+                fi
             fi
         done
         if [ -z "$COMPAT_PYTHON" ]; then
-            error "No compatible Python (3.9-3.11) found. Install with:"
-            echo "  sudo apt-get install python3.11 python3.11-venv"
+            error "No compatible Python (3.9-3.12) found. Install with:"
+            echo "  sudo apt-get install python3.12 python3.12-venv"
             exit 1
         fi
         PYTHON_CMD="$COMPAT_PYTHON"
