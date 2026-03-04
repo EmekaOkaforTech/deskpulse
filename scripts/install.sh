@@ -386,11 +386,15 @@ install_systemd_service() {
     # Verify service file exists (dependency check)
     if [ ! -f "scripts/systemd/deskpulse.service" ]; then
         error "Missing service file"
-        echo "Story 1.4 dependency missing: scripts/systemd/deskpulse.service"
+        echo "Repository may be incomplete — try reinstalling"
         exit 1
     fi
 
-    sudo cp scripts/systemd/deskpulse.service /etc/systemd/system/
+    # Substitute real user and install path into service file
+    sed -e "s|__DESKPULSE_USER__|$USER|g" \
+        -e "s|__DESKPULSE_DIR__|$INSTALL_DIR|g" \
+        scripts/systemd/deskpulse.service \
+        | sudo tee /etc/systemd/system/deskpulse.service >/dev/null
     sudo systemctl daemon-reload
     sudo systemctl enable deskpulse.service
     sudo systemctl start deskpulse.service
