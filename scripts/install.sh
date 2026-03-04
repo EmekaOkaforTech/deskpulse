@@ -356,12 +356,12 @@ initialize_database() {
     # Verify app factory exists (dependency check)
     if [ ! -f "app/__init__.py" ] || [ ! -f "app/data/database.py" ]; then
         error "Missing application files"
-        echo "Story 1.1/1.2 dependencies missing: app/__init__.py or app/data/database.py"
+        echo "Repository may be incomplete — try reinstalling"
         exit 1
     fi
 
     sudo mkdir -p /var/lib/deskpulse
-    sudo chown "$USER:$USER" /var/lib/deskpulse
+    sudo chown -R "$USER:$USER" /var/lib/deskpulse
 
     # Run SQL schema directly — avoids starting CV/camera threads via create_app
     venv/bin/python3 << 'EOF'
