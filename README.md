@@ -1,4 +1,6 @@
-# DeskPulse - Privacy-First Posture Monitoring
+<p align="center">
+  <img src="app/static/img/lockup.png" alt="DeskPulse" width="500">
+</p>
 
 Real-time posture monitoring for Raspberry Pi with local processing and zero cloud dependencies.
 
