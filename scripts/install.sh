@@ -435,14 +435,13 @@ verify_installation() {
 }
 
 display_success_message() {
-    progress "Installation complete!"
-
+    # Not a progress step — this is the completion banner
     # Get Pi's IP for network access instructions
     PI_IP=$(hostname -I | awk '{print $1}')
 
     echo ""
     echo "============================================"
-    echo "  deskpulse Installation Complete!"
+    echo "  DeskPulse Installation Complete!"
     echo "============================================"
     echo ""
     echo "Installation Summary:"
