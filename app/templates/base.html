@@ -76,25 +76,29 @@
             display: none;
         }
 
-        /* Brand header section */
+        /* Brand header — centered hero pattern */
         .brand-header {
-            padding: 2rem 0 1.5rem;
+            text-align: center;
+            padding: 3rem 0 2.5rem;
+            border-bottom: 1px solid rgba(107, 114, 128, 0.15);
+            margin-bottom: 1rem;
         }
 
-        /* Brand lockup in dashboard header */
+        /* Brand lockup: fixed width keeps wordmark fully readable at all viewports */
         .brand-lockup {
-            height: 140px;
-            width: auto;
-            max-width: 100%;
+            width: 300px;
+            height: auto;
+            max-width: 85%;
             display: block;
-            margin-bottom: 0.75rem;
+            margin: 0 auto 1rem;
         }
 
         .brand-tagline {
             margin: 0;
             color: var(--muted-color);
-            font-size: 1rem;
-            letter-spacing: 0.03em;
+            font-size: 0.8rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
     </style>
 
