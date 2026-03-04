@@ -68,6 +68,7 @@ class CameraCapture:
         self.is_active = False
         self.error_handler = CameraErrorHandler()
         self.last_error: Optional[dict] = None
+        self._logged_error_type: Optional[str] = None  # Suppress duplicate solution logs
 
     def initialize(self) -> bool:
         """
@@ -84,7 +85,9 @@ class CameraCapture:
                     self.camera_device if isinstance(self.camera_device, int) else 0
                 )
                 logger.error(f"Camera permission denied: {permissions['error']}")
-                logger.error(f"Solution: {self.last_error['solution']}")
+                if self._logged_error_type != 'PERMISSION_DENIED':
+                    logger.error(f"Solution: {self.last_error['solution']}")
+                    self._logged_error_type = 'PERMISSION_DENIED'
                 return False
 
             # Raspberry Pi workaround: Add small delay before camera access
@@ -112,7 +115,9 @@ class CameraCapture:
                 # Use error handler for specific diagnostics
                 self.last_error = self.error_handler.handle_camera_error(device_index)
                 logger.error(f"Camera error: {self.last_error['error_type']} - {self.last_error['message']}")
-                logger.error(f"Solution: {self.last_error['solution']}")
+                if self._logged_error_type != self.last_error['error_type']:
+                    logger.error(f"Solution: {self.last_error['solution']}")
+                    self._logged_error_type = self.last_error['error_type']
                 return False
 
             # Set camera properties from config
@@ -136,12 +141,15 @@ class CameraCapture:
                     # Use error handler for specific diagnostics
                     self.last_error = self.error_handler.handle_camera_error(device_index)
                     logger.error(f"Camera warmup failed: {self.last_error['error_type']}")
-                    logger.error(f"Solution: {self.last_error['solution']}")
+                    if self._logged_error_type != self.last_error['error_type']:
+                        logger.error(f"Solution: {self.last_error['solution']}")
+                        self._logged_error_type = self.last_error['error_type']
                     self.cap.release()
                     return False
 
             self.is_active = True
-            self.last_error = None  # Clear any previous error
+            self.last_error = None
+            self._logged_error_type = None  # Reset so new errors are logged fully
             logger.info("Camera connected: device %d at %s", device_index, self.resolution)
             return True
 

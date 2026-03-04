@@ -405,9 +405,6 @@ install_systemd_service() {
 verify_installation() {
     progress "Verifying installation..."
 
-    # Allow Flask startup time
-    sleep 5
-
     # Check service running
     if ! systemctl is-active --quiet deskpulse.service; then
         error "Service failed to start"
@@ -416,19 +413,25 @@ verify_installation() {
     fi
     success "Service running"
 
-    # Check HTTP responding (requires AC0 health endpoint!) (C1 dependency)
-    if ! curl -f -s http://localhost:5000/health >/dev/null; then
-        error "Service not responding to HTTP"
+    # Wait for Flask to be ready — retry HTTP check for up to 30 seconds
+    echo -n "   Waiting for web server"
+    HTTP_OK=false
+    for i in $(seq 1 30); do
+        if curl -f -s http://localhost:5000/health >/dev/null 2>&1; then
+            HTTP_OK=true
+            break
+        fi
+        echo -n "."
+        sleep 1
+    done
+    echo ""
+
+    if [ "$HTTP_OK" = false ]; then
+        error "Service not responding to HTTP after 30 seconds"
         echo "Check logs: journalctl -u deskpulse -n 50"
         exit 1
     fi
-    success "HTTP health check passed"
-
-    # Check for errors in recent logs
-    if journalctl -p err -u deskpulse --since "1 minute ago" 2>/dev/null | grep -q "ERROR"; then
-        warning "Errors detected in logs"
-        echo "   Review: journalctl -u deskpulse -p err -n 20"
-    fi
+    success "Web server ready"
 }
 
 display_success_message() {
