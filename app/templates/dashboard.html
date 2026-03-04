@@ -5,10 +5,10 @@
 {% block content %}
 <!-- Header: Project branding and tagline -->
 <header>
-    <hgroup>
-        <h1>DeskPulse</h1>
-        <h2>Privacy-First Posture Monitoring</h2>
-    </hgroup>
+    <img src="{{ url_for('static', filename='img/lockup.png') }}"
+         alt="DeskPulse"
+         class="brand-lockup">
+    <p class="brand-tagline">Privacy-First Posture Monitoring</p>
 </header>
 
 <!-- Main article: Live camera feed and posture status -->

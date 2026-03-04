@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DeskPulse{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/monogram.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/monogram.png') }}">
 
     <!-- Pico CSS v1.5.13 (7-9KB gzipped) - Lightweight semantic HTML framework -->
     <!-- Enterprise Security: SRI integrity hash prevents CDN tampering -->
@@ -72,6 +74,20 @@
         /* Hidden element utility */
         .hidden {
             display: none;
+        }
+
+        /* Brand lockup in dashboard header */
+        .brand-lockup {
+            height: 64px;
+            width: auto;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .brand-tagline {
+            margin: 0;
+            color: var(--muted-color);
+            font-size: 1rem;
         }
     </style>
 
