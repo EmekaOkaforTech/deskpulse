@@ -169,12 +169,7 @@ check_prerequisites() {
 install_system_dependencies() {
     progress "Installing system dependencies (~2 minutes)..."
     sudo apt-get update -qq
-    # libgl1-mesa-glx was split into libgl1 in Debian 12+
-    GL_PKG="libgl1-mesa-glx"
-    if ! apt-cache show "$GL_PKG" &>/dev/null 2>&1; then
-        GL_PKG="libgl1"
-    fi
-    sudo apt-get install -y python3-venv python3-pip libsystemd-dev libnotify-bin v4l-utils git "$GL_PKG"
+    sudo apt-get install -y python3-venv python3-pip libsystemd-dev libnotify-bin v4l-utils git libgl1
     sudo usermod -a -G video "$USER"
     success "System packages installed"
     warning "Logout/login required for camera access (video group)"
