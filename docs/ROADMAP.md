@@ -1,229 +1,76 @@
-# DeskPulse Feature Roadmap
+# DeskPulse Roadmap
 
-**Last Updated:** 2026-03-03
-**Status:** Phase 1 & 2 Complete
-
----
-
-## Engagement & Retention Strategy
-
-DeskPulse aims to transform posture monitoring from passive observation to active habit formation through thoughtful engagement features.
-
-### Design Principles
-
-1. **Encouragement over Criticism** - Celebrate wins, reframe challenges
-2. **Progress Framing** - "Improved 6 points" not "32% bad posture"
-3. **Non-Intrusive** - Helpful without being annoying
-4. **Privacy-First** - All processing local, no cloud dependencies
+**Last Updated:** 2026-03-04
 
 ---
 
-## Feature Phases
+## Design Principles
 
-### Phase 1: Smart Coach Messages (Open Source)
+These principles guide every feature decision in DeskPulse:
 
-**Status:** ✅ Complete
-
-Replace static "Good posture" / "Bad posture" messages with contextual, encouraging feedback.
-
-#### Smart Coach Message Categories
-
-**Good Posture Messages (Rotation):**
-1. "Great posture! Keep it up."
-2. "Looking good! Your back thanks you."
-3. "Perfect form! You're building great habits."
-4. "Excellent! This is how champions sit."
-5. "Your posture is on point today!"
-
-**Good Posture Streak Messages (after 5+ minutes):**
-6. "5 minutes of great posture! You're on a roll."
-7. "Consistency is key - you've got this!"
-8. "Your posture streak is growing stronger."
-
-**Bad Posture - Gentle Reminders:**
-9. "Time for a quick posture check!"
-10. "Let's straighten up - your spine will thank you."
-11. "Small adjustment needed - sit tall!"
-12. "Quick reset: shoulders back, chin level."
-
-**Recovery Encouragement (after correcting):**
-13. "Nice recovery! That's the spirit."
-14. "Back on track - great adjustment!"
-15. "Every correction builds better habits."
-
-**Time-Based Messages:**
-- Morning (6am-12pm): "Starting the day with good posture!"
-- Afternoon (12pm-5pm): "Keeping strong through the afternoon!"
-- Evening (5pm-9pm): "Finishing the day right!"
-
-#### Implementation Details
-
-- Messages rotate to avoid repetition (track last 3 shown)
-- Good posture streaks tracked for milestone messages
-- Integration with existing `posture-message` element
-- No database changes required (client-side logic)
+1. **Encouragement over Criticism** — Celebrate progress, reframe setbacks positively
+2. **Progress Framing** — "Improved 6 points this week" not "32% bad posture"
+3. **Non-Intrusive** — Helpful reminders without interrupting flow
+4. **Privacy-First** — All processing is local; no data leaves your device
 
 ---
 
-### Phase 2: Achievement System (Open Source)
+## Current Features
 
-**Status:** ✅ Complete
+### Real-Time Posture Monitoring
+Live camera feed with MediaPipe pose detection, posture classification, and
+configurable alert thresholds. Desktop and browser notifications delivered
+when bad posture persists beyond the threshold (default: 10 minutes).
 
-Milestone badges to celebrate progress and encourage consistency.
+### Smart Coach Messages ✅
+Contextual, encouraging feedback based on posture state, streak duration,
+and time of day — replacing static "Good / Bad" status labels.
 
-#### Achievement Categories
+### Achievement System ✅
+Nine unlockable achievements across three categories:
 
-**Daily Achievements:**
-- First Perfect Hour: 60 minutes of good posture
-- Posture Champion: 80%+ daily score
-- Consistency King: 4+ hours good posture
+- **Daily** — Reward consistent good posture within a single day
+- **Weekly** — Recognise sustained consistency over a 7-day window
+- **Milestone** — One-time awards for key habits formed
 
-**Weekly Achievements:**
-- Week Warrior: 7-day streak with 70%+ average
-- Improvement Hero: 10+ point improvement from last week
-- Perfect Week: 5 days with 80%+ scores
+All achievements require meaningful monitoring time to earn, preventing
+false awards from brief sessions.
 
-**Milestone Achievements:**
-- Getting Started: Complete first full day
-- Habit Builder: 7-day tracking streak
-- Posture Pro: 30-day tracking streak
-- Transformation: First time hitting 90% daily score
+### 7-Day Analytics
+Daily posture score, good/bad duration, trend direction, and a full
+7-day history table available on the dashboard.
 
-#### Storage
+### Pause / Resume Controls
+One-click pause halts monitoring and alerts without stopping the app.
+Duration statistics do not accumulate while paused.
 
-- Achievements stored in SQLite (`achievements` table)
-- Fields: `id`, `type`, `earned_at`, `metadata`
-- Display in dedicated "Achievements" dashboard section
+### End-of-Day Summary
+An automatic daily summary notification at 23:55 showing the day's
+posture score and time breakdown.
 
 ---
 
-### Phase 3: Goal Setting & Challenges (Open Source)
+## Planned Features
+
+### Goal Setting
+User-defined daily posture score targets with visual progress tracking.
+Enables intentional improvement rather than passive monitoring.
+
+**Status:** Planned — community contributions welcome
+
+### Extended Analytics
+Deeper insight into posture patterns: identify problematic times of day,
+track improvement over longer periods, and export data in standard formats.
 
 **Status:** Planned
 
-Personalized goals to drive engagement.
-
-#### Features
-
-- Set daily posture score target (default: 70%)
-- Visual progress bar toward daily goal
-- Weekly challenge system:
-  - "Improve by 5 points this week"
-  - "Maintain 75%+ for 3 consecutive days"
-  - "No bad posture alerts today"
-
 ---
 
-### Phase 4: Analytics Insights (Premium)
+## Contributing
 
-**Status:** Future
+The best way to influence the roadmap is to open a GitHub issue or discussion.
+Features requested by the community and backed by clear use cases will be
+prioritised.
 
-Advanced analytics reserved for premium tier.
-
-#### Premium Features
-
-- **Extended History:** 30+ days (vs 7-day free)
-- **Pattern Detection:** Identify problematic times/days
-- **Correlation Analysis:** Link posture to calendar events
-- **Custom Reports:** PDF export with insights
-- **Multi-Device Sync:** Sync data across devices
-
----
-
-## Open Source vs Premium Feature Matrix
-
-| Feature | Open Source | Premium |
-|---------|-------------|---------|
-| Real-time Monitoring | ✅ | ✅ |
-| Smart Coach Messages | ✅ | ✅ |
-| Achievement Badges | ✅ | ✅ |
-| Goal Setting | ✅ | ✅ |
-| Weekly Challenges | ✅ | ✅ |
-| 7-Day History | ✅ | ✅ |
-| 30+ Day History | ❌ | ✅ |
-| Pattern Detection | ❌ | ✅ |
-| Custom Reports | ❌ | ✅ |
-| Data Export (CSV) | ✅ | ✅ |
-| Data Export (PDF) | ❌ | ✅ |
-| Multi-Device Sync | ❌ | ✅ |
-| Priority Support | ❌ | ✅ |
-
----
-
-## Implementation Priority
-
-### Current Sprint (Phase 1)
-
-1. ~~Fix pause monitoring bug~~ ✅
-2. ~~Fix CV Pipeline status display~~ ✅
-3. ~~Fix System Status pause reflection~~ ✅
-4. ~~Remove redundant UI indicators~~ ✅
-5. ~~Implement Smart Coach messages (10-15)~~ ✅
-6. ~~Test and verify improvements~~ ✅
-
-**Phase 1 Status: COMPLETE**
-
-### Next Sprint (Phase 2)
-
-1. ~~Design achievement system schema~~ ✅
-2. ~~Implement achievement tracking~~ ✅
-3. ~~Create achievement display UI~~ ✅
-4. ~~Add achievement notifications~~ ✅
-
-**Phase 2 Status: COMPLETE**
-
-### Future Sprints
-
-- Phase 3: Goal setting and challenges
-- Phase 4: Premium analytics features
-- Epic 5: Reliability improvements
-- Epic 6: Community/CI infrastructure
-
----
-
-## Technical Notes
-
-### Smart Coach Message Implementation
-
-```javascript
-// Message selection algorithm (pseudo-code)
-function selectCoachMessage(postureState, streakMinutes, timeOfDay) {
-    if (postureState === 'good') {
-        if (streakMinutes >= 5) {
-            return pickStreakMessage(streakMinutes);
-        }
-        return pickRandomGoodMessage(lastShownMessages);
-    } else {
-        return pickRandomBadMessage(lastShownMessages);
-    }
-}
-```
-
-### Achievement Tracking
-
-```sql
-CREATE TABLE achievements (
-    id INTEGER PRIMARY KEY,
-    type TEXT NOT NULL,
-    earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    metadata TEXT  -- JSON for flexible data
-);
-```
-
----
-
-## Changelog
-
-### 2026-01-16
-- Created roadmap document
-- Defined Phase 1-4 feature breakdown
-- Documented Open Source vs Premium split
-- Phase 1 implementation complete (Smart Coach messages)
-- Phase 2 implementation complete (Achievement System)
-  - Database schema: achievement_type, achievement_earned, achievement_progress tables
-  - 13 achievements across daily/weekly/milestone categories
-  - AchievementRepository for data access
-  - AchievementService for business logic
-  - REST API endpoints: /api/achievements, /api/achievements/check, etc.
-  - Dashboard UI with badge display and notifications
-  - Toast notifications for newly earned achievements
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for development setup and
+contribution guidelines.

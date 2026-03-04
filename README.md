@@ -406,25 +406,24 @@ pip install -r requirements.txt
 
 ## Documentation
 
-- **[Architecture](docs/architecture.md)** - System design and technical decisions
-- **[PRD](docs/prd.md)** - Product requirements and features
-- **[UX Design](docs/ux-design-specification.md)** - User experience specification
-- **[Test Design](docs/test-design.md)** - Testing strategy and architecture
-- **[Epics](docs/epics.md)** - Feature breakdown and user stories
-- **[Contributing](CONTRIBUTING.md)** - Development setup and guidelines
+- **[Architecture](docs/ARCHITECTURE.md)** - System design, components, and technical decisions
+- **[Roadmap](docs/ROADMAP.md)** - Planned and completed features
+- **[Camera Placement](docs/CAMERA-PLACEMENT.md)** - Optimal webcam positioning guide
+- **[Contributing](CONTRIBUTING.md)** - Development setup and contribution guidelines
 
 ## Project Status
 
-**Open Source Edition - Raspberry Pi DIY Version**
+**Open Source Edition — Raspberry Pi**
 
-| Epic | Status | Description |
-|------|--------|-------------|
-| Epic 1: Foundation | ✅ Complete | Flask app, SQLite, systemd, installer |
-| Epic 2: Monitoring | ✅ Complete | Real-time posture detection with MediaPipe |
-| Epic 3: Alerts | ✅ Complete | Desktop and browser notifications |
-| Epic 4: Analytics | ✅ Complete | 7-day history and trend tracking |
-| Epic 5: Reliability | ✅ Complete | Database backup, CI pipeline, GitHub release |
-| Epic 6: Community | ✅ Complete | CI/CD, contribution infrastructure, pre-commit hooks |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Installation & Setup | ✅ Complete | One-line installer, systemd service, auto-start |
+| Real-Time Monitoring | ✅ Complete | Live pose detection with MediaPipe |
+| Alerts & Notifications | ✅ Complete | Desktop and browser notifications |
+| Analytics & History | ✅ Complete | 7-day posture history and trend tracking |
+| Smart Coach Messages | ✅ Complete | Contextual, encouraging posture feedback |
+| Achievement System | ✅ Complete | 9 unlockable badges for posture habits |
+| Community Infrastructure | ✅ Complete | CI pipeline, issue templates, contribution guidelines |
 
 ## Contributing
 
