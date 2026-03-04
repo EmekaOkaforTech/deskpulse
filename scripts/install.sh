@@ -363,15 +363,18 @@ initialize_database() {
     sudo mkdir -p /var/lib/deskpulse
     sudo chown "$USER:$USER" /var/lib/deskpulse
 
-    source venv/bin/activate
-    export TF_CPP_MIN_LOG_LEVEL=3
-    export GLOG_minloglevel=3
-    export MEDIAPIPE_DISABLE_GPU=1
-    PYTHONPATH=. venv/bin/python3 2>/dev/null << 'EOF'
-from app import create_app
-from app.data.database import init_db_schema
-app = create_app('production')
-init_db_schema(app)
+    # Run SQL schema directly — avoids starting CV/camera threads via create_app
+    venv/bin/python3 << 'EOF'
+import sqlite3, os
+db_path = "/var/lib/deskpulse/deskpulse.db"
+schema_path = "app/data/migrations/init_schema.sql"
+with open(schema_path) as f:
+    schema_sql = f.read()
+conn = sqlite3.connect(db_path)
+conn.executescript(schema_sql)
+conn.commit()
+conn.close()
+print(f"Database initialised: {db_path}")
 EOF
 
     success "Database initialized at /var/lib/deskpulse/posture.db (WAL mode)"
